@@ -3,40 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tracking de Dos Manos - Pantalla Completa</title>
+    <title>Espacio Espacial - Ventanas Flotantes con Gestos</title>
     <style>
-        /* Estilos para pantalla completa y diseño limpio */
         body, html { 
-            margin: 0; 
-            padding: 0; 
-            width: 100%; 
-            height: 100%; 
-            overflow: hidden; /* Evita barras de desplazamiento */
-            background: #000; /* Fondo negro mientras carga */
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            overflow: hidden; background: #000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
-        #container {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-        }
+        #container { position: relative; width: 100vw; height: 100vh; }
+        #video, #output { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+        #output { z-index: 10; pointer-events: none; } /* El canvas no debe bloquear los clics del mouse si se usa */
 
-        #video, #output { 
+        /* --- ESTILO DE LAS VENTANAS FLOTANTES (Estilo Vision Pro) --- */
+        .window {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            /* 'object-fit: cover' asegura pantalla completa sin deformar la imagen, cortando los bordes si es necesario */
-            object-fit: cover; 
+            width: 300px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 16px;
+            color: white;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            z-index: 20;
+            overflow: hidden;
+            transition: transform 0.1s ease;
+            user-select: none;
         }
 
-        /* Asegura que el canvas esté SIEMPRE encima del video */
-        #output {
-            z-index: 10;
+        /* Cuando la ventana está siendo sujetada */
+        .window.holding {
+            border-color: #00FF00;
+            box-shadow: 0 0 25px rgba(0, 255, 0, 0.4);
+            transform: scale(1.02);
+        }
+
+        .window-header {
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            font-weight: bold;
+            font-size: 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+
+        .window-content {
+            padding: 20px;
+            font-size: 14px;
+            line-height: 1.5;
         }
     </style>
 </head>
@@ -44,6 +58,13 @@
     <div id="container">
         <video id="video" autoplay playsinline></video>
         <canvas id="output"></canvas>
+
+        <div id="win1" class="window" style="top: 20%; left: 35%;">
+            <div class="window-header">TechExchange Panel</div>
+            <div class="window-content">
+                <p>¡Hola! Junta tus dedos <b>Pulgar e Índice</b> sobre esta ventana para arrastrarla por el espacio virtual.</p>
+            </div>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
@@ -54,69 +75,110 @@
         const videoElement = document.getElementById('video');
         const canvasElement = document.getElementById('output');
         const canvasCtx = canvasElement.getContext('2d');
+        const ventana = document.getElementById('win1');
 
-        // Función para ajustar la resolución interna del canvas
-        // Esto es necesario para que los puntos se dibujen en la posición correcta en pantalla completa
+        // Estado del arrastre de la ventana
+        let isHolding = false;
+        let offsetX = 0;
+        let offsetY = 0;
+
         function resizeCanvas() {
             canvasElement.width = window.innerWidth;
             canvasElement.height = window.innerHeight;
         }
-
-        // Llamar a la función al cargar y cuando cambie el tamaño de la ventana
         window.addEventListener('load', resizeCanvas);
         window.addEventListener('resize', resizeCanvas);
 
-        // Configuración de MediaPipe Hands
-        const hands = new Hands({
-            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-        });
-
-        // --- CAMBIO CLAVE AQUÍ ---
+        const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
         hands.setOptions({ 
-            maxNumHands: 2,           // AHORA DETECTA 2 MANOS
-            modelComplexity: 1,       // 1 para balance entre velocidad y precisión
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
+            maxNumHands: 2, 
+            modelComplexity: 1, 
+            minDetectionConfidence: 0.7, // Subimos la confianza para evitar saltos falsos
+            minTrackingConfidence: 0.7 
         });
         
-        // Función que dibuja los resultados (puntos y conexiones) en el canvas
         hands.onResults((results) => {
-            // 1. Limpiar el canvas de la iteración anterior
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
             
-            // 2. Si se detectan manos, dibujarlas
+            let handDetectedThisFrame = false;
+
             if (results.multiHandLandmarks) {
-                // El bucle ya estaba preparado para múltiples manos
                 for (const landmarks of results.multiHandLandmarks) {
-                    // Dibujar las líneas de conexión (verdes)
-                    drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {
-                        color: '#00FF00', 
-                        lineWidth: 4
-                    });
-                    // Dibujar los puntos clave de los dedos (rojos)
-                    drawLandmarks(canvasCtx, landmarks, {
-                        color: '#FF0000', 
-                        lineWidth: 1, 
-                        radius: 3
-                    });
+                    handDetectedThisFrame = true;
+
+                    // Dibujar el esqueleto en pantalla
+                    drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#ffffff', lineWidth: 2});
+                    drawLandmarks(canvasCtx, landmarks, {color: '#00FF00', lineWidth: 1, radius: 3});
+
+                    // --- LOGICA DE GESTO (PINZA) ---
+                    // ID 4 = Punta del Pulgar, ID 8 = Punta del Índice
+                    const thumb = landmarks[4];
+                    const indexFinger = landmarks[8];
+
+                    // Convertir las coordenadas relativas (0 a 1) a píxeles de la pantalla
+                    // Nota: Invertimos el eje X (1 - x) porque las webcams por defecto muestran efecto espejo
+                    const thumbX = (1 - thumb.x) * window.innerWidth;
+                    const thumbY = thumb.y * window.innerHeight;
+                    const indexX = (1 - indexFinger.x) * window.innerWidth;
+                    const indexY = indexFinger.y * window.innerHeight;
+
+                    // Calcular distancia matemática entre ambos dedos
+                    const distancia = Math.sqrt(Math.pow(indexX - thumbX, 2) + Math.pow(indexY - thumbY, 2));
+
+                    // El punto medio entre los dos dedos será nuestro "puntero de la mano"
+                    const pointerX = (thumbX + indexX) / 2;
+                    const pointerY = (thumbY + indexY) / 2;
+
+                    // Dibujar un círculo indicador en el punto de la pinza
+                    canvasCtx.beginPath();
+                    canvasCtx.arc(pointerX, pointerY, 8, 0, 2 * Math.PI);
+                    canvasCtx.fillStyle = distancia < 45 ? '#00FF00' : '#FF0000';
+                    canvasCtx.fill();
+
+                    // Obtener posición de la ventana
+                    const rect = ventana.getBoundingClientRect();
+
+                    // Si la distancia es menor a 45 píxeles, están "pellizcando"
+                    if (distancia < 45) {
+                        if (!isHolding) {
+                            // Verificar si el puntero de la mano está dentro de los límites de la ventana
+                            if (pointerX >= rect.left && pointerX <= rect.right &&
+                                pointerY >= rect.top && pointerY <= rect.bottom) {
+                                isHolding = true;
+                                ventana.classList.add('holding');
+                                // Guardar la distancia desde donde se agarró respecto a la esquina superior izquierda de la ventana
+                                offsetX = pointerX - rect.left;
+                                offsetY = pointerY - rect.top;
+                            }
+                        } else {
+                            // Si ya la sostiene, mover la ventana siguiendo al puntero
+                            ventana.style.left = `${pointerX - offsetX}px`;
+                            ventana.style.top = `${pointerY - offsetY}px`;
+                        }
+                    } else {
+                        // Si abren los dedos, soltar la ventana
+                        if (isHolding) {
+                            isHolding = false;
+                            ventana.classList.remove('holding');
+                        }
+                    }
                 }
             }
+
+            // Si no se detectan manos en el frame, soltar por seguridad
+            if (!handDetectedThisFrame && isHolding) {
+                isHolding = false;
+                ventana.classList.remove('holding');
+            }
+
             canvasCtx.restore();
         });
 
-        // Configurar y conectar la cámara
         const camera = new Camera(videoElement, {
-            onFrame: async () => { 
-                // Enviar cada frame del video a MediaPipe para procesar
-                await hands.send({image: videoElement}); 
-            },
-            // Especificar una resolución base (MediaPipe la ajustará)
-            width: 1280, 
-            height: 720
+            onFrame: async () => { await hands.send({image: videoElement}); },
+            width: 1280, height: 720
         });
-        
-        // Iniciar la cámara
         camera.start();
     </script>
 </body>
