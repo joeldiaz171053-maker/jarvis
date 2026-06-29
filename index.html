@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Espacio Virtual - Control Total por Gestos</title>
+    <title>Espacio Virtual - Computación Espacial Avanzada</title>
     <style>
         body, html { 
             margin: 0; padding: 0; width: 100%; height: 100%; 
@@ -12,7 +12,7 @@
 
         #container { position: relative; width: 100vw; height: 100vh; }
         
-        /* Espejo visual para el usuario */
+        /* Espejo de cámara y lienzo */
         #video, #output { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
             object-fit: cover; 
@@ -20,90 +20,79 @@
         }
         #output { z-index: 10; pointer-events: none; }
 
-        /* --- MENÚ DE CONTROL FLOTANTE (Lado Derecho) --- */
+        /* --- MENÚ DE CONTROL FLOTANTE (Derecha) --- */
         #control-panel {
-            position: absolute;
-            right: 40px;
-            top: 50%;
-            transform: translateY(-50%);
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-            z-index: 30;
+            position: absolute; right: 40px; top: 50%; transform: translateY(-50%);
+            display: flex; flex-direction: column; gap: 24px; z-index: 30;
+            transition: opacity 0.5s;
         }
+        #control-panel.hidden { opacity: 0; pointer-events: none; }
 
         .btn {
-            width: 70px;
-            height: 70px;
-            border-radius: 50%;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            color: white;
-            font-size: 32px;
-            cursor: pointer;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            transition: all 0.2s ease;
-            user-select: none;
+            width: 70px; height: 70px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            color: white; font-size: 32px; cursor: pointer; display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); transition: all 0.2s ease; user-select: none;
         }
-
-        /* Efecto cuando la mano física está "haciendo clic" en el botón */
-        .btn.pressed {
-            transform: scale(0.9);
-            background: rgba(255, 255, 255, 0.6);
-            box-shadow: 0 0 20px rgba(255, 255, 255, 0.6);
-        }
+        .btn.pressed { transform: scale(0.9); background: rgba(255, 255, 255, 0.6); }
         .btn-add { border-color: #00FF00; color: #00FF00; }
         .btn-remove { border-color: #FF3B30; color: #FF3B30; }
 
-        /* --- ESTILO DE LAS VENTANAS FLOTANTES --- */
+        /* --- CONTENEDOR LATERAL PARA VENTANAS SECUNDARIAS --- */
+        #sidebar-background {
+            position: absolute; left: 0; top: 0; width: 180px; height: 100%;
+            background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            border-right: 1px solid rgba(255, 255, 255, 0.1); z-index: 15;
+            transform: translateX(-100%); transition: transform 0.5s ease;
+            display: flex; flex-direction: column; gap: 16px; padding: 20px 10px; box-sizing: border-box;
+            overflow-y: auto;
+        }
+        #sidebar-background.active { transform: translateX(0); }
+
+        /* --- ESTILO BASE DE LAS VENTANAS FLOTANTES --- */
         .window {
-            position: absolute;
-            width: 280px;
-            background: rgba(255, 255, 255, 0.12);
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 16px;
-            color: white;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.4);
-            z-index: 20;
-            overflow: hidden;
-            transition: transform 0.05s linear, border-color 0.2s;
-            user-select: none;
+            position: absolute; width: 280px;
+            background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 16px; color: white;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.4); z-index: 20; overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); user-select: none;
         }
 
         .window.holding {
-            border-color: #00FF00;
-            box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
-            transform: scale(1.02);
-            z-index: 25;
+            border-color: #00FF00; box-shadow: 0 0 30px rgba(0, 255, 0, 0.3); transform: scale(1.02); z-index: 25;
+            transition: transform 0.05s linear;
         }
+
+        /* --- MODO ENFOQUE (MAXIMIZADO) --- */
+        .window.maximized {
+            top: 5% !important; left: 200px !important;
+            width: calc(100vw - 250px) !important; height: 90vh !important;
+            z-index: 28; border-color: #00D2FF;
+            box-shadow: 0 0 40px rgba(0, 210, 255, 0.4);
+        }
+
+        /* --- MODO MINIMIZADO EN SEGUNDO PLANO (SIDEBAR) --- */
+        .window.minimized {
+            position: relative !important; top: 0 !important; left: 0 !important;
+            width: 160px !important; height: auto !important; transform: scale(1) !important;
+            z-index: 18; border-color: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .window.minimized .window-content { display: none; } /* Ocultar contenido para ahorrar espacio lateral */
 
         .window-header {
-            padding: 12px;
-            background: rgba(255, 255, 255, 0.08);
-            font-weight: 600;
-            font-size: 14px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            text-align: center;
+            padding: 12px; background: rgba(255, 255, 255, 0.08);
+            font-weight: 600; font-size: 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); text-align: center;
         }
-
-        .window-content {
-            padding: 18px;
-            font-size: 14px;
-            line-height: 1.5;
-        }
+        .window-content { padding: 18px; font-size: 14px; line-height: 1.5; }
     </style>
 </head>
 <body>
     <div id="container">
         <video id="video" autoplay playsinline></video>
         <canvas id="output"></canvas>
+
+        <div id="sidebar-background"></div>
 
         <div id="control-panel">
             <button class="btn btn-add" id="addBtn">+</button>
@@ -113,7 +102,7 @@
         <div class="window" style="top: 25%; left: 25%;">
             <div class="window-header">Espacio Principal</div>
             <div class="window-content">
-                <p>¡Arreglado! Junta tus dedos aquí para moverme, o haz la pinza sobre los botones de la derecha.</p>
+                <p><b>Gesto de Enfoque:</b> Abre la mano completamente sobre una ventana para expandirla. Hazlo de nuevo para restaurar el espacio.</p>
             </div>
         </div>
     </div>
@@ -126,14 +115,19 @@
         const videoElement = document.getElementById('video');
         const canvasElement = document.getElementById('output');
         const canvasCtx = canvasElement.getContext('2d');
+        const sidebar = document.getElementById('sidebar-background');
+        const ctrlPanel = document.getElementById('control-panel');
 
         let activeHoldingWindow = null;
-        let offsetX = 0;
-        let offsetY = 0;
+        let maximizedWindow = null;
+        let offsetX = 0; let offsetY = 0;
         let windowCounter = 1;
         
-        // Bandera para evitar clics infinitos mientras se sostiene la pinza en un botón
         let buttonCooldown = false; 
+        let gestureCooldown = false; // Cooldown para evitar transiciones de pantalla infinita rápidas
+
+        // Guardar posiciones originales antes de la minimización masiva
+        const originalPositions = new Map();
 
         function resizeCanvas() {
             canvasElement.width = window.innerWidth;
@@ -142,8 +136,8 @@
         window.addEventListener('load', resizeCanvas);
         window.addEventListener('resize', resizeCanvas);
 
-        // Funciones de control de ventanas
         function crearVentana() {
+            if (maximizedWindow) return; // Deshabilitar creación en modo enfoque
             windowCounter++;
             const newWin = document.createElement('div');
             newWin.className = 'window';
@@ -154,29 +148,26 @@
             newWin.style.left = `${randomLeft}%`;
             newWin.innerHTML = `
                 <div class="window-header">Ventana #${windowCounter}</div>
-                <div class="window-content"><p>Nueva interfaz virtual añadida con éxito usando tus dedos.</p></div>
+                <div class="window-content"><p>Interfaz interactiva independiente flotando en tu área de trabajo.</p></div>
             `;
             document.getElementById('container').appendChild(newWin);
         }
 
         function eliminarVentana() {
+            if (maximizedWindow) return;
             const windows = document.querySelectorAll('.window');
             if (windows.length > 1) {
                 windows[windows.length - 1].remove();
             }
         }
 
-        // Eventos para mouse por si acaso
         document.getElementById('addBtn').addEventListener('click', crearVentana);
         document.getElementById('removeBtn').addEventListener('click', eliminarVentana);
 
-        // Configuración de MediaPipe
+        // CONFIGURACIÓN MEDIAPIPE
         const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
         hands.setOptions({ 
-            maxNumHands: 2, 
-            modelComplexity: 1, 
-            minDetectionConfidence: 0.7, 
-            minTrackingConfidence: 0.7 
+            maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 
         });
         
         hands.onResults((results) => {
@@ -192,66 +183,129 @@
                     drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#ffffff', lineWidth: 2});
                     drawLandmarks(canvasCtx, landmarks, {color: '#00FF00', lineWidth: 1, radius: 3});
 
+                    // Puntas de dedos clave
                     const thumb = landmarks[4];
-                    const indexFinger = landmarks[8];
+                    const index = landmarks[8];
+                    const pinky = landmarks[20]; // Meñique para medir apertura total de mano
 
-                    // --- CORRECCIÓN MATEMÁTICA DEL ESPEJO ---
-                    // Invertimos el cálculo en JS para emparejarlo con el transform: scaleX(-1) de CSS
+                    // Ajustar coordenadas con efecto espejo físico
+                    const pointerX = window.innerWidth - (((thumb.x + index.x) / 2) * window.innerWidth);
+                    const pointerY = ((thumb.y + index.y) / 2) * window.innerHeight;
+
+                    const indexX = window.innerWidth - (index.x * window.innerWidth);
+                    const indexY = index.y * window.innerHeight;
                     const thumbX = window.innerWidth - (thumb.x * window.innerWidth);
                     const thumbY = thumb.y * window.innerHeight;
-                    const indexX = window.innerWidth - (indexFinger.x * window.innerWidth);
-                    const indexY = indexFinger.y * window.innerHeight;
+                    const pinkyX = window.innerWidth - (pinky.x * window.innerWidth);
+                    const pinkyY = pinky.y * window.innerHeight;
 
-                    const distancia = Math.sqrt(Math.pow(indexX - thumbX, 2) + Math.pow(indexY - thumbY, 2));
-                    const pointerX = (thumbX + indexX) / 2;
-                    const pointerY = (thumbY + indexY) / 2;
+                    // Distancias críticas
+                    const distanciaPinza = Math.sqrt(Math.pow(indexX - thumbX, 2) + Math.pow(indexY - thumbY, 2));
+                    const distanciaManoAbierta = Math.sqrt(Math.pow(pinkyX - thumbX, 2) + Math.pow(pinkyY - thumbY, 2));
 
-                    // Dibujar indicador de pinza
+                    // Indicador de estado en el canvas
                     canvasCtx.beginPath();
                     canvasCtx.arc(pointerX, pointerY, 8, 0, 2 * Math.PI);
-                    canvasCtx.fillStyle = distancia < 45 ? '#00FF00' : '#FF0000';
+                    
+                    if (distanciaPinza < 45) {
+                        canvasCtx.fillStyle = '#00FF00'; // Verde: Pinza Cerrada
+                    } else if (distanciaManoAbierta > 220) {
+                        canvasCtx.fillStyle = '#00D2FF'; // Azul: Mano Abierta
+                    } else {
+                        canvasCtx.fillStyle = '#FF0000'; // Rojo: Reposo
+                    }
                     canvasCtx.fill();
 
-                    // --- DETECCIÓN DE INTERACCIÓN ---
-                    if (distancia < 45) {
-                        
-                        // 1. COMPROBAR BOTONES FLOTANTES
-                        const addBtn = document.getElementById('addBtn');
-                        const removeBtn = document.getElementById('removeBtn');
-                        const rAdd = addBtn.getBoundingClientRect();
-                        const rRem = removeBtn.getBoundingClientRect();
 
-                        // Pinza sobre botón Añadir
-                        if (pointerX >= rAdd.left && pointerX <= rAdd.right && pointerY >= rAdd.top && pointerY <= rAdd.bottom) {
-                            addBtn.classList.add('pressed');
-                            if (!buttonCooldown) {
-                                crearVentana();
-                                buttonCooldown = true;
-                            }
-                            continue; // Saltar lógica de ventanas si interactúa con botones
-                        }
-                        
-                        // Pinza sobre botón Eliminar
-                        if (pointerX >= rRem.left && pointerX <= rRem.right && pointerY >= rRem.top && pointerY <= rRem.bottom) {
-                            removeBtn.classList.add('pressed');
-                            if (!buttonCooldown) {
-                                eliminarVentana();
-                                buttonCooldown = true;
-                            }
-                            continue;
-                        }
-
-                        // 2. LOGICA DE ARRASTRE DE VENTANAS (Si no está sobre botones)
-                        if (!activeHoldingWindow) {
+                    // --- GESTO 1: MANO ABIERTA SOBRE UNA VENTANA (MAXIMIZAR / RESTAURAR) ---
+                    if (distanciaManoAbierta > 220 && !activeHoldingWindow) {
+                        if (!gestureCooldown) {
                             const windows = document.querySelectorAll('.window');
                             
                             for (let i = windows.length - 1; i >= 0; i--) {
                                 const win = windows[i];
                                 const rect = win.getBoundingClientRect();
 
-                                if (pointerX >= rect.left && pointerX <= rect.right &&
-                                    pointerY >= rect.top && pointerY <= rect.bottom) {
+                                // Validar si la mano abierta está encima de la pestaña
+                                if (pointerX >= rect.left && pointerX <= rect.right && pointerY >= rect.top && pointerY <= rect.bottom) {
                                     
+                                    gestureCooldown = true;
+                                    setTimeout(() => gestureCooldown = false, 1000); // Bloqueo de 1 segundo para estabilidad
+
+                                    if (!maximizedWindow) {
+                                        // ACTIVAR MODO ENFOQUE
+                                        maximizedWindow = win;
+                                        win.classList.add('maximized');
+                                        sidebar.classList.add('active');
+                                        ctrlPanel.classList.add('hidden');
+
+                                        // Mover el resto de las ventanas al panel lateral secundario apartado
+                                        windows.forEach(w => {
+                                            if (w !== maximizedWindow) {
+                                                // Guardar coordenadas originales para el retorno
+                                                originalPositions.set(w, { top: w.style.top, left: w.style.left });
+                                                w.classList.add('minimized');
+                                                sidebar.appendChild(w); // Mover dentro del contenedor lateral
+                                            }
+                                        });
+                                    } else if (maximizedWindow === win) {
+                                        // DESACTIVAR MODO ENFOQUE (Volver a la normalidad)
+                                        win.classList.remove('maximized');
+                                        sidebar.classList.remove('active');
+                                        ctrlPanel.classList.remove('hidden');
+
+                                        // Devolver las ventanas secundarias al espacio libre flotante
+                                        windows.forEach(w => {
+                                            if (w !== maximizedWindow) {
+                                                w.classList.remove('minimized');
+                                                const pos = originalPositions.get(w);
+                                                if (pos) {
+                                                    w.style.top = pos.top;
+                                                    w.style.left = pos.left;
+                                                }
+                                                document.getElementById('container').appendChild(w);
+                                            }
+                                        });
+                                        maximizedWindow = null;
+                                        originalPositions.clear();
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                        continue; // Evitar disparar arrastres mientras la mano esté abierta
+                    }
+
+
+                    // --- GESTO 2: PINZA (ARRASTRE Y INTERACCIÓN CON BOTONES) ---
+                    if (distanciaPinza < 45) {
+                        // Ignorar botones si estamos en Modo Enfoque
+                        if (!maximizedWindow) {
+                            const addBtn = document.getElementById('addBtn');
+                            const removeBtn = document.getElementById('removeBtn');
+                            const rAdd = addBtn.getBoundingClientRect();
+                            const rRem = removeBtn.getBoundingClientRect();
+
+                            if (pointerX >= rAdd.left && pointerX <= rAdd.right && pointerY >= rAdd.top && pointerY <= rAdd.bottom) {
+                                addBtn.classList.add('pressed');
+                                if (!buttonCooldown) { crearVentana(); buttonCooldown = true; }
+                                continue;
+                            }
+                            if (pointerX >= rRem.left && pointerX <= rRem.right && pointerY >= rRem.top && pointerY <= rRem.bottom) {
+                                removeBtn.classList.add('pressed');
+                                if (!buttonCooldown) { eliminarVentana(); buttonCooldown = true; }
+                                continue;
+                            }
+                        }
+
+                        // Arrastrar solo si la ventana no está maximizada ni metida en el panel lateral
+                        if (!activeHoldingWindow) {
+                            const windows = document.querySelectorAll('.window:not(.minimized):not(.maximized)');
+                            for (let i = windows.length - 1; i >= 0; i--) {
+                                const win = windows[i];
+                                const rect = win.getBoundingClientRect();
+
+                                if (pointerX >= rect.left && pointerX <= rect.right && pointerY >= rect.top && pointerY <= rect.bottom) {
                                     activeHoldingWindow = win;
                                     win.classList.add('holding');
                                     offsetX = pointerX - rect.left;
@@ -260,29 +314,24 @@
                                 }
                             }
                         } else {
-                            // Mover ventana activa
                             activeHoldingWindow.style.left = `${pointerX - offsetX}px`;
                             activeHoldingWindow.style.top = `${pointerY - offsetY}px`;
                         }
-
                     } else {
-                        // Soltar todo al abrir los dedos
+                        // Soltar estados activos si se abren los dedos de forma regular
                         if (activeHoldingWindow) {
                             activeHoldingWindow.classList.remove('holding');
                             activeHoldingWindow = null;
                         }
                         document.getElementById('addBtn').classList.remove('pressed');
                         document.getElementById('removeBtn').classList.remove('pressed');
-                        buttonCooldown = false; // Resetear enfriamiento de botones
+                        buttonCooldown = false;
                     }
                 }
             }
 
             if (!handDetectedThisFrame) {
-                if (activeHoldingWindow) {
-                    activeHoldingWindow.classList.remove('holding');
-                    activeHoldingWindow = null;
-                }
+                if (activeHoldingWindow) { activeHoldingWindow.classList.remove('holding'); activeHoldingWindow = null; }
                 document.getElementById('addBtn').classList.remove('pressed');
                 document.getElementById('removeBtn').classList.remove('pressed');
                 buttonCooldown = false;
