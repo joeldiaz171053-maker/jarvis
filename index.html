@@ -3,31 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Holo-OS Ultimate Workspace</title>
+    <title>Holo-OS Mirror Workspace</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', -apple-system, sans-serif; }
         #container { width: 100vw; height: 100vh; position: relative; user-select: none; }
         
-        /* Video oculto para procesamiento y Canvas de visualización */
+        /* Video de procesamiento (oculto) y Canvas con Efecto Espejo Real */
         #video { position: absolute; width: 100%; height: 100%; object-fit: cover; display: none; }
-        #output { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 10; pointer-events: none; }
-        
-        /* Fondo de pantalla del sistema */
-        #virtual-bg {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: url('https://images.unsplash.com/photo-1629654297299-c8506221ca97?q=80&w=1920') no-repeat center center;
-            background-size: cover; z-index: 1;
+        #output { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            object-fit: cover; z-index: 10; pointer-events: none;
+            transform: scaleX(-1); /* Invierte la cámara horizontalmente */
         }
         
         /* --- PANEL DE CONTROL DERECHO --- */
         #control-panel { position: absolute; right: 30px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 15px; z-index: 100; }
-        .btn { width: 55px; height: 55px; border-radius: 50%; background: rgba(10, 25, 50, 0.8); border: 2px solid #00d2ff; color: #00d2ff; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 22px; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.5); transition: all 0.2s; }
+        .btn { width: 55px; height: 55px; border-radius: 50%; background: rgba(10, 20, 40, 0.8); border: 2px solid #00d2ff; color: #00d2ff; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 22px; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.5); transition: all 0.2s; }
         .btn:hover { background: #00d2ff; color: black; box-shadow: 0 0 15px #00d2ff; }
         
         /* --- VISUALIZADOR DE TAREAS (ESTILO MOBILE) --- */
         #task-switcher { 
             position: absolute; bottom: -250px; left: 50%; transform: translateX(-50%); width: 70%; height: 180px; 
-            background: rgba(15, 25, 45, 0.9); border: 2px solid #00d2ff; border-radius: 20px 20px 0 0; backdrop-filter: blur(15px);
+            background: rgba(10, 20, 40, 0.95); border: 2px solid #00d2ff; border-radius: 20px 20px 0 0; backdrop-filter: blur(15px);
             display: flex; gap: 20px; padding: 20px; z-index: 90; transition: bottom 0.4s cubic-bezier(0.1, 0.8, 0.2, 1);
             overflow-x: auto; align-items: center; box-sizing: border-box;
         }
@@ -36,7 +33,7 @@
 
         /* --- VENTANAS DEL ENTORNO --- */
         .window { 
-            position: absolute; width: 460px; height: 420px; background: rgba(10, 20, 40, 0.9); 
+            position: absolute; width: 460px; height: 420px; background: rgba(10, 15, 30, 0.85); 
             border: 2px solid #00d2ff; border-radius: 14px; padding: 0; z-index: 40;
             box-shadow: 0 20px 40px rgba(0,0,0,0.7); backdrop-filter: blur(10px);
             resize: both; overflow: auto; display: flex; flex-direction: column;
@@ -44,7 +41,7 @@
         }
         @keyframes emerge { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
         
-        /* Estilo miniatura dentro del Task Switcher */
+        /* Miniaturas dentro del Task Switcher */
         .window.minimized { 
             position: relative !important; top: 0 !important; left: 0 !important; width: 140px !important; height: 110px !important; 
             flex-shrink: 0; resize: none; overflow: hidden; cursor: pointer; border-color: rgba(0,210,255,0.4);
@@ -54,29 +51,27 @@
         .window-header { background: rgba(0,210,255,0.15); padding: 12px; font-weight: bold; border-bottom: 1px solid rgba(0, 210, 255, 0.3); display: flex; justify-content: space-between; align-items: center; color: #00d2ff; }
         .win-close { cursor: pointer; color: #ff3b30; font-weight: bold; font-size: 16px; }
 
-        /* --- INTERFAZ DEL NAVEGADOR (USER FRIENDLY) --- */
-        .nav-bar { display: flex; gap: 8px; padding: 8px; background: rgba(5, 15, 30, 0.8); border-bottom: 1px solid rgba(0, 210, 255, 0.2); align-items: center; }
+        /* --- INTERFAZ DEL NAVEGADOR --- */
+        .nav-bar { display: flex; gap: 8px; padding: 8px; background: rgba(5, 15, 30, 0.9); border-bottom: 1px solid rgba(0, 210, 255, 0.2); align-items: center; }
         .nav-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(0,210,255,0.3); color: white; border-radius: 4px; padding: 5px 10px; cursor: pointer; font-size: 12px; }
         .nav-btn:hover { background: #00d2ff; color: #000; }
-        .address-bar { flex-grow: 1; padding: 6px 12px; border: 1px solid rgba(0,210,255,0.4); background: rgba(255,255,255,0.9); color: #000; border-radius: 6px; font-size: 13px; font-weight: 600; outline: none; }
+        .address-bar { flex-grow: 1; padding: 6px 12px; border: 1px solid rgba(0,210,255,0.4); background: rgba(255,255,255,0.95); color: #000; border-radius: 6px; font-size: 13px; font-weight: 600; outline: none; }
         
         .window-content { flex-grow: 1; display: flex; flex-direction: column; padding: 0; margin: 0; background: white; }
         .browser-frame { width: 100%; height: 100%; border: none; background: white; }
 
-        /* --- CURSOR PERSONALIZADO SISTEMA --- */
+        /* --- CURSOR PERSONALIZADO (Z-INDEX SUPERIOR) --- */
         #custom-cursor {
             position: absolute; width: 45px; height: 45px; z-index: 2000;
             pointer-events: none; transform: translate(-50%, -50%);
             font-size: 35px; display: none; line-height: 1;
             text-shadow: 0 0 10px rgba(0, 210, 255, 0.8);
-            transition: transform 0.05s linear;
         }
     </style>
 </head>
 <body>
 
 <div id="container">
-    <div id="virtual-bg"></div>
     <video id="video" autoplay playsinline></video>
     <canvas id="output"></canvas>
     
@@ -87,8 +82,8 @@
     </div>
     
     <div id="control-panel">
-        <button class="btn" id="addBtnVirtual" onclick="crearVentana()">+</button>
-        <button class="btn" id="removeBtnVirtual" onclick="eliminarVentanaTop()">-</button>
+        <button class="btn" onclick="crearVentana()">+</button>
+        <button class="btn" onclick="eliminarVentanaTop()">-</button>
         <button class="btn" onclick="toggleTaskSwitcher()">📋</button>
     </div>
     
@@ -132,7 +127,7 @@
     function cargarUrl(val, frameId) {
         let url = val.trim();
         if (!/^https?:\/\//i.test(url)) {
-            url = "https://www.google.com/search?q=" + encodeURIComponent(url) + "&transparent=1";
+            url = "https://www.google.com/search?q=" + encodeURIComponent(url);
         }
         document.getElementById(frameId).src = url;
     }
@@ -145,7 +140,7 @@
         win.className = 'window';
         win.id = `win${windowCounter}`;
         win.style.top = `${15 + (windowCounter * 2)}%`; 
-        win.style.left = `${20 + (windowCounter * 3)}%`;
+        win.style.left = `${25 + (windowCounter * 2)}%`;
         win.innerHTML = `
             <div class="window-header">
                 <span>Módulo Web #${windowCounter}</span>
@@ -189,7 +184,7 @@
     }
     document.querySelectorAll('.window').forEach(asignarClickRestaurar);
 
-    // --- CONFIGURACIÓN DE MEDIAPIPE Y RENDER CHROMA ---
+    // --- CONFIGURACIÓN DE MEDIAPIPE ---
     const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
     hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.75, minTrackingConfidence: 0.75 });
 
@@ -197,79 +192,59 @@
         ctx.save();
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Algoritmo Chroma Key con aislamiento mejorado
+        // Renderizado directo de la cámara (Sin Chroma Key)
         if (video.readyState === video.HAVE_ENOUGH_DATA) {
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            let frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            let data = frame.data;
-
-            for (let i = 0; i < data.length; i += 4) {
-                let r = data[i], g = data[i+1], b = data[i+2];
-                // Filtro calibrado para rangos de fondos comunes (verdes, blancos corporativos o grises claros)
-                if ((g > 95 && r < 110 && b < 110) || (r > 195 && g > 195 && b > 195)) { 
-                    data[i+3] = 0; 
-                }
-            }
-            ctx.putImageData(frame, 0, 0);
         }
 
         if (res.multiHandLandmarks && res.multiHandLandmarks.length > 0) {
             const landmarks = res.multiHandLandmarks[0];
             
-            // Dibujar estructura holográfica de la mano por encima del sujeto
-            drawConnectors(ctx, landmarks, HAND_CONNECTIONS, {color: '#00d2ff', lineWidth: 2});
+            // Estructura ósea de la mano alineada con el espejo
+            drawConnectors(ctx, landmarks, HAND_CONNECTIONS, {color: '#00d2ff', lineWidth: 2.5});
             drawLandmarks(ctx, landmarks, {color: '#ff3b30', lineWidth: 1, radius: 2});
 
             const thumb = landmarks[4];
             const index = landmarks[8];
 
-            // --- CORRECCIÓN DE ESPEJO COMPLETA ---
-            const px = index.x * window.innerWidth;
+            // Sincronización del espejo: Inversión en el cálculo de MediaPipe
+            const px = (1 - index.x) * window.innerWidth;
             const py = index.y * window.innerHeight;
 
-            const tx = thumb.x * window.innerWidth;
+            const tx = (1 - thumb.x) * window.innerWidth;
             const ty = thumb.y * window.innerHeight;
 
             const dist = Math.hypot(px - tx, py - ty);
 
-            // Mostrar y mover el cursor de la mano
+            // Actualización del Cursor de la Mano
             cursor.style.display = 'block';
             cursor.style.left = px + 'px';
             cursor.style.top = py + 'px';
 
-            // Gesto de Agarrar / Pinza
-            if (dist < 40) {
-                cursor.innerText = '✊'; // Mano cerrada
+            // Detección de Pinza / Agarre
+            if (dist < 45) {
+                cursor.innerText = '✊'; // Puño Cerrado
                 
                 if (!activeWin) {
                     const windows = document.querySelectorAll('.window:not(.minimized)');
-                    // Buscar de adelante hacia atrás la ventana sobre la cual se hace click
                     for (let i = windows.length - 1; i >= 0; i--) {
                         const win = windows[i];
                         const rect = win.getBoundingClientRect();
-                        // Detección extendida a toda la barra superior (Header)
+                        // Agarre exacto por la barra superior
                         if (px >= rect.left && px <= rect.right && py >= rect.top && py <= rect.top + 50) {
                             activeWin = win;
                             dragOffsetX = px - rect.left;
                             dragOffsetY = py - rect.top;
-                            // Traer al frente visualmente
-                            document.getElementById('container').appendChild(win);
+                            document.getElementById('container').appendChild(win); // Capa superior
                             break;
                         }
                     }
                 } else {
-                    // Mover ventana activa de forma fluida
                     activeWin.style.left = (px - dragOffsetX) + 'px';
                     activeWin.style.top = (py - dragOffsetY) + 'px';
                 }
-
-                // Colisión Virtual con Botón Añadir (+)
-                const btnAddRect = document.getElementById('addBtnVirtual').getBoundingClientRect();
-                if (px >= btnAddRect.left && px <= btnAddRect.right && py >= btnAddRect.top && py <= btnAddRect.bottom) {
-                    crearVentana();
-                }
             } else {
-                cursor.innerText = '✋'; // Mano abierta
+                cursor.innerText = '✋'; // Mano Abierta
                 activeWin = null;
             }
         } else {
