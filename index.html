@@ -5,127 +5,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Espacio Virtual - OS Holográfico</title>
     <style>
-        body, html { 
-            margin: 0; padding: 0; width: 100%; height: 100%; 
-            overflow: hidden; background: #000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: sans-serif; }
         #container { position: relative; width: 100vw; height: 100vh; }
-        
-        #video, #output { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            object-fit: cover; transform: scaleX(-1); 
-        }
+        #video, #output { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
         #output { z-index: 10; pointer-events: none; }
 
-        /* Controles laterales */
-        #control-panel {
-            position: absolute; right: 40px; top: 50%; transform: translateY(-50%);
-            display: flex; flex-direction: column; gap: 24px; z-index: 30;
-            transition: opacity 0.5s;
-        }
-        #control-panel.hidden { opacity: 0; pointer-events: none; }
-
-        .btn {
-            width: 70px; height: 70px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.3);
-            background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(10px);
-            color: white; font-size: 32px; cursor: pointer; display: flex; justify-content: center; align-items: center;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); transition: all 0.2s ease; user-select: none;
-        }
-        .btn.pressed { transform: scale(0.9); background: rgba(255, 255, 255, 0.6); }
-        .btn-add { border-color: #00FF00; color: #00FF00; }
-        .btn-remove { border-color: #FF3B30; color: #FF3B30; }
-
-        #sidebar-background {
-            position: absolute; left: 0; top: 0; width: 180px; height: 100%;
-            background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(20px);
-            border-right: 1px solid rgba(0, 210, 255, 0.2); z-index: 15;
-            transform: translateX(-100%); transition: transform 0.5s ease;
-            display: flex; flex-direction: column; gap: 16px; padding: 20px 10px; box-sizing: border-box; overflow-y: auto;
-        }
-        #sidebar-background.active { transform: translateX(0); }
-
-        /* Ventanas */
-        .window {
-            position: absolute; width: 320px;
-            background: rgba(0, 20, 40, 0.6); backdrop-filter: blur(15px);
-            border: 1px solid rgba(0, 210, 255, 0.4); border-radius: 12px; color: white;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 20; overflow: hidden;
-            transition: border-color 0.3s, box-shadow 0.3s; 
-            user-select: none;
-        }
-
-        .window.holding {
-            border-color: #00FF00; z-index: 25;
-            box-shadow: 0 0 30px rgba(0, 255, 0, 0.4);
-        }
-
-        .window.maximized {
-            top: 5% !important; left: 200px !important;
-            width: calc(100vw - 250px) !important; height: 90vh !important;
-            z-index: 28; border-color: #00D2FF;
-        }
-
-        .window.minimized {
-            position: relative !important; top: 0 !important; left: 0 !important;
-            width: 160px !important; height: auto !important; z-index: 18;
-        }
-        .window.minimized .window-content { display: none; }
-
-        .window-header {
-            padding: 10px; background: rgba(0, 210, 255, 0.2);
-            font-weight: bold; font-size: 14px; text-align: center; border-bottom: 1px solid rgba(0, 210, 255, 0.3);
-        }
+        /* Controles */
+        #control-panel { position: absolute; right: 40px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 20px; z-index: 30; }
+        .btn { width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,0.2); border: 1px solid white; color: white; display: flex; justify-content: center; align-items: center; cursor: pointer; }
         
-        .window-content { padding: 15px; font-size: 14px; display: flex; flex-direction: column; gap: 10px; }
-
-        /* UI Navegador */
-        .search-bar {
-            display: flex; width: 100%; gap: 5px;
-        }
-        .search-bar input {
-            flex-grow: 1; padding: 8px; border-radius: 6px; border: none; outline: none;
-            background: rgba(255, 255, 255, 0.9); color: #000; font-weight: bold;
-        }
-        .mic-btn {
-            background: #ff3b30; border: none; color: white; border-radius: 6px; padding: 0 15px;
-            cursor: pointer; font-weight: bold; transition: 0.2s;
-        }
-        .mic-btn.listening { background: #00FF00; box-shadow: 0 0 15px #00FF00; }
-        .browser-frame {
-            width: 100%; height: 200px; background: #fff; border: none; border-radius: 6px;
-        }
-        .window.maximized .browser-frame { height: calc(100% - 60px); }
-
-        /* Notificador de sistema */
-        #status-hud {
-            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
-            color: #00D2FF; font-weight: bold; z-index: 40; font-size: 18px; text-shadow: 0 0 10px #00D2FF;
-        }
+        /* Sidebar Izquierdo */
+        #sidebar { position: absolute; left: 0; top: 0; width: 160px; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); z-index: 15; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 15px; }
+        
+        /* Ventanas */
+        .window { position: absolute; width: 300px; background: rgba(0,50,100,0.7); backdrop-filter: blur(10px); border: 1px solid #00d2ff; border-radius: 10px; color: white; z-index: 20; padding: 10px; }
+        .window.minimized { position: relative !important; width: 100% !important; height: 80px !important; background: rgba(0,100,200,0.3); }
+        .window-header { cursor: move; padding-bottom: 10px; font-weight: bold; border-bottom: 1px solid #00d2ff; }
+        .browser-frame { width: 100%; height: 200px; border: none; margin-top: 10px; }
+        .mic-btn { width: 100%; padding: 10px; background: #ff3b30; border: none; color: white; cursor: pointer; border-radius: 5px; }
     </style>
 </head>
 <body>
     <div id="container">
         <video id="video" autoplay playsinline></video>
         <canvas id="output"></canvas>
-
-        <div id="status-hud">SISTEMA INICIADO</div>
-        <div id="sidebar-background"></div>
-
+        <div id="sidebar"><h3>Minimizadas</h3></div>
         <div id="control-panel">
-            <button class="btn btn-add" id="addBtn">+</button>
-            <button class="btn btn-remove" id="removeBtn">−</button>
+            <button class="btn" onclick="crearVentana()">+</button>
+            <button class="btn" onclick="eliminarVentana()">-</button>
         </div>
-
-        <div class="window browser-window" style="top: 20%; left: 20%; width: 400px;" id="browserWindow">
+        
+        <div class="window" style="top: 20%; left: 30%;">
             <div class="window-header">Navegador IA</div>
-            <div class="window-content">
-                <div class="search-bar">
-                    <input type="text" id="searchInput" placeholder="Buscar en Google...">
-                    <button class="mic-btn" id="micBtn">🎤</button>
-                </div>
-                <iframe class="browser-frame" id="browserFrame" src="https://es.wikipedia.org/wiki/Portal:Portada"></iframe>
-            </div>
+            <input type="text" id="searchIn" placeholder="Buscar..." style="width:100%">
+            <button class="mic-btn" id="micBtn">🎤 Escuchar</button>
+            <iframe class="browser-frame" src="https://es.wikipedia.org/wiki/Portal:Portada"></iframe>
         </div>
     </div>
 
@@ -134,157 +48,69 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 
     <script>
-        const videoElement = document.getElementById('video');
-        const canvasElement = document.getElementById('output');
-        const canvasCtx = canvasElement.getContext('2d');
-        const hud = document.getElementById('status-hud');
-
-        let activeHoldingWindow = null;
-        let maximizedWindow = null;
-        let offsetX = 0; let offsetY = 0;
-        let buttonCooldown = false; 
+        const sidebar = document.getElementById('sidebar');
+        const micBtn = document.getElementById('micBtn');
+        let activeWin = null;
         
-        // Variables para el Swipe
-        let prevPointerX = null;
+        // Voz
+        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.lang = 'es-ES';
+        recognition.onresult = (e) => window.open(`https://www.google.com/search?q=${e.results[0][0].transcript}`);
+        micBtn.onclick = () => recognition.start();
 
-        // Configuración de Voz
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        let recognition = null;
-        if (SpeechRecognition) {
-            recognition = new SpeechRecognition();
-            recognition.lang = 'es-ES';
-            recognition.continuous = false;
-            recognition.interimResults = false;
-
-            recognition.onresult = (event) => {
-                const query = event.results[0][0].transcript;
-                document.getElementById('searchInput').value = query;
-                hud.innerText = `Buscando: "${query}"`;
-                realizarBusqueda(query);
-            };
-            recognition.onend = () => document.getElementById('micBtn').classList.remove('listening');
+        function crearVentana() {
+            const win = document.createElement('div');
+            win.className = 'window';
+            win.style.top = '100px'; win.style.left = '300px';
+            win.innerHTML = '<div class="window-header">Nueva Ventana</div><div>Contenido del sistema</div>';
+            document.getElementById('container').appendChild(win);
         }
 
-        function realizarBusqueda(query) {
-            // Abre Google en una pestaña nueva
-            window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
-        }
-
-        function setStatus(text) { hud.innerText = text; setTimeout(() => hud.innerText = "", 2000); }
-
-        function resizeCanvas() {
-            canvasElement.width = window.innerWidth;
-            canvasElement.height = window.innerHeight;
-        }
-        window.addEventListener('load', resizeCanvas);
-        window.addEventListener('resize', resizeCanvas);
+        function eliminarVentana() { const wins = document.querySelectorAll('.window'); if(wins.length > 1) wins[wins.length-1].remove(); }
 
         const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
-        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+        hands.setOptions({ maxNumHands: 1, minDetectionConfidence: 0.7 });
         
-        hands.onResults((results) => {
-            canvasCtx.save();
-            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+        hands.onResults((res) => {
+            const canvas = document.getElementById('output');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                const landmarks = results.multiHandLandmarks[0];
-                drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#ffffff', lineWidth: 1.5});
-                drawLandmarks(canvasCtx, landmarks, {color: '#00d2ff', lineWidth: 1, radius: 2.5});
-
+            if (res.multiHandLandmarks?.length > 0) {
+                const landmarks = res.multiHandLandmarks[0];
                 const thumb = landmarks[4];
                 const index = landmarks[8];
-                const middle = landmarks[12];
-                const ring = landmarks[16];
-                const pinky = landmarks[20];
-
-                // Puntero
-                const pointerX = window.innerWidth - (((thumb.x + index.x) / 2) * window.innerWidth);
-                const pointerY = ((thumb.y + index.y) / 2) * window.innerHeight;
-
-                const distanciaPinza = Math.sqrt(Math.pow((index.x - thumb.x)*window.innerWidth, 2) + Math.pow((index.y - thumb.y)*window.innerHeight, 2));
+                const px = window.innerWidth - (index.x * window.innerWidth);
+                const py = index.y * window.innerHeight;
                 
-                // GESTO: L-Shape (Índice y Pulgar extendidos, los demás cerrados) para SWIPE
-                const dedoMedioCerrado = middle.y > landmarks[9].y; // Medio doblado hacia abajo
-                const dedoAnularCerrado = ring.y > landmarks[13].y;
-                const L_Shape = distanciaPinza > 100 && dedoMedioCerrado && dedoAnularCerrado;
+                const dist = Math.hypot((index.x - thumb.x)*window.innerWidth, (index.y - thumb.y)*window.innerHeight);
 
-                // Render Puntero
-                canvasCtx.beginPath();
-                canvasCtx.arc(pointerX, pointerY, 8, 0, 2 * Math.PI);
-                canvasCtx.fillStyle = L_Shape ? '#FF00FF' : (distanciaPinza < 45 ? '#00FF00' : 'rgba(0, 210, 255, 0.5)');
-                canvasCtx.fill();
+                // Dibujar cursor
+                ctx.fillStyle = dist < 40 ? '#00FF00' : '#00D2FF';
+                ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI*2); ctx.fill();
 
-                // --- LÓGICA DE SWIPE (DESPLAZAMIENTO) ---
-                if (L_Shape && !activeHoldingWindow) {
-                    if (prevPointerX !== null) {
-                        const deltaX = pointerX - prevPointerX;
-                        // Mover ventanas si hay un movimiento lateral brusco
-                        if (Math.abs(deltaX) > 5) {
-                            document.querySelectorAll('.window:not(.minimized):not(.maximized)').forEach(win => {
-                                const currentLeft = parseFloat(win.style.left || 0);
-                                win.style.left = `${currentLeft + deltaX}px`;
-                            });
+                // Lógica arrastrar / minimizar
+                if (dist < 40) {
+                    const wins = document.querySelectorAll('.window');
+                    wins.forEach(w => {
+                        const rect = w.getBoundingClientRect();
+                        if (px > rect.left && px < rect.right && py > rect.top && py < rect.bottom) {
+                            if (!activeWin) activeWin = w;
+                            activeWin.style.left = (px - 50) + 'px';
+                            activeWin.style.top = (py - 20) + 'px';
                         }
-                    }
-                    prevPointerX = pointerX; 
+                    });
+                } else if (activeWin && dist > 120) {
+                    activeWin.classList.add('minimized');
+                    sidebar.appendChild(activeWin);
+                    activeWin = null;
                 } else {
-                    prevPointerX = null; // Reiniciar si pierde la forma de L
+                    activeWin = null;
                 }
-
-                // --- LÓGICA DE PINZA (CLICK / DRAG) ---
-                if (distanciaPinza < 45 && !L_Shape) {
-                    
-                    // Click en Botón de Micrófono
-                    const micBtn = document.getElementById('micBtn');
-                    const rectMic = micBtn.getBoundingClientRect();
-                    if (pointerX >= rectMic.left && pointerX <= rectMic.right && pointerY >= rectMic.top && pointerY <= rectMic.bottom) {
-                        if (!buttonCooldown && recognition) {
-                            micBtn.classList.add('listening');
-                            recognition.start();
-                            buttonCooldown = true;
-                            setStatus("Escuchando...");
-                            setTimeout(() => buttonCooldown = false, 1500);
-                        }
-                    }
-
-                    // Sujetar Ventanas
-                    if (!activeHoldingWindow) {
-                        const windows = document.querySelectorAll('.window:not(.minimized):not(.maximized)');
-                        for (let i = windows.length - 1; i >= 0; i--) {
-                            const win = windows[i];
-                            const rect = win.getBoundingClientRect();
-                            // Detectar si pincha el "Header" (parte superior) para arrastrar
-                            if (pointerX >= rect.left && pointerX <= rect.right && pointerY >= rect.top && pointerY <= rect.top + 40) {
-                                activeHoldingWindow = win;
-                                win.classList.add('holding'); 
-                                offsetX = pointerX - rect.left;
-                                offsetY = pointerY - rect.top;
-                                break;
-                            }
-                        }
-                    } else {
-                        // Mover ventana retenida
-                        activeHoldingWindow.style.left = `${pointerX - offsetX}px`;
-                        activeHoldingWindow.style.top = `${pointerY - offsetY}px`;
-                    }
-                } else {
-                    if (activeHoldingWindow) {
-                        activeHoldingWindow.classList.remove('holding'); 
-                        activeHoldingWindow = null;
-                    }
-                }
-            } else {
-                if (activeHoldingWindow) { activeHoldingWindow.classList.remove('holding'); activeHoldingWindow = null; }
-                prevPointerX = null;
             }
-            canvasCtx.restore();
         });
 
-        const camera = new Camera(videoElement, {
-            onFrame: async () => { await hands.send({image: videoElement}); },
-            width: 1280, height: 720
-        });
-        camera.start();
+        new Camera(document.getElementById('video'), { onFrame: async () => await hands.send({image: document.getElementById('video')}) }).start();
     </script>
 </body>
 </html>
