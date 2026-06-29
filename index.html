@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Espacio Espacial - Ventanas Flotantes con Gestos</title>
+    <title>Espacio Virtual - Ventanas Interactivas</title>
     <style>
         body, html { 
             margin: 0; padding: 0; width: 100%; height: 100%; 
@@ -11,46 +11,89 @@
         }
 
         #container { position: relative; width: 100vw; height: 100vh; }
-        #video, #output { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
-        #output { z-index: 10; pointer-events: none; } /* El canvas no debe bloquear los clics del mouse si se usa */
+        
+        /* --- SOLUCIÓN ESPEJO: Invertimos horizontalmente la cámara y el canvas juntos --- */
+        #video, #output { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            object-fit: cover; 
+            transform: scaleX(-1); 
+        }
+        #output { z-index: 10; pointer-events: none; }
 
-        /* --- ESTILO DE LAS VENTANAS FLOTANTES (Estilo Vision Pro) --- */
-        .window {
+        /* --- MENÚ DE CONTROL FLOTANTE (Lado Derecho) --- */
+        #control-panel {
             position: absolute;
-            width: 300px;
+            right: 24px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            z-index: 30;
+        }
+
+        .btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.3);
             background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.25);
-            border-radius: 16px;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
             color: white;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
-            z-index: 20;
-            overflow: hidden;
-            transition: transform 0.1s ease;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s ease;
             user-select: none;
         }
 
-        /* Cuando la ventana está siendo sujetada */
+        .btn:hover { background: rgba(255, 255, 255, 0.3); transform: scale(1.05); }
+        .btn-add { border-color: #00FF00; color: #00FF00; }
+        .btn-remove { border-color: #FF3B30; color: #FF3B30; }
+
+        /* --- ESTILO DE LAS VENTANAS FLOTANTES --- */
+        .window {
+            position: absolute;
+            width: 280px;
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            color: white;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+            z-index: 20;
+            overflow: hidden;
+            transition: transform 0.05s linear, border-color 0.2s, box-shadow 0.2s;
+            user-select: none;
+        }
+
         .window.holding {
             border-color: #00FF00;
-            box-shadow: 0 0 25px rgba(0, 255, 0, 0.4);
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
             transform: scale(1.02);
+            z-index: 25; /* Poner al frente al arrastrar */
         }
 
         .window-header {
             padding: 12px;
-            background: rgba(255, 255, 255, 0.1);
-            font-weight: bold;
+            background: rgba(255, 255, 255, 0.08);
+            font-weight: 600;
             font-size: 14px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             text-align: center;
+            letter-spacing: 0.5px;
         }
 
         .window-content {
-            padding: 20px;
+            padding: 18px;
             font-size: 14px;
             line-height: 1.5;
+            color: rgba(255, 255, 255, 0.9);
         }
     </style>
 </head>
@@ -59,10 +102,15 @@
         <video id="video" autoplay playsinline></video>
         <canvas id="output"></canvas>
 
-        <div id="win1" class="window" style="top: 20%; left: 35%;">
-            <div class="window-header">TechExchange Panel</div>
+        <div id="control-panel">
+            <button class="btn btn-add" id="addBtn" title="Nueva Ventana">+</button>
+            <button class="btn btn-remove" id="removeBtn" title="Eliminar Última Ventana">−</button>
+        </div>
+
+        <div class="window" style="top: 25%; left: 30%;">
+            <div class="window-header">Espacio Principal</div>
             <div class="window-content">
-                <p>¡Hola! Junta tus dedos <b>Pulgar e Índice</b> sobre esta ventana para arrastrarla por el espacio virtual.</p>
+                <p>Usa la pinza (Pulgar + Índice) sobre esta ventana para moverla. ¡Usa los botones de la derecha para añadir más!</p>
             </div>
         </div>
     </div>
@@ -75,12 +123,12 @@
         const videoElement = document.getElementById('video');
         const canvasElement = document.getElementById('output');
         const canvasCtx = canvasElement.getContext('2d');
-        const ventana = document.getElementById('win1');
 
-        // Estado del arrastre de la ventana
-        let isHolding = false;
+        // Estado del arrastre
+        let activeHoldingWindow = null;
         let offsetX = 0;
         let offsetY = 0;
+        let windowCounter = 1;
 
         function resizeCanvas() {
             canvasElement.width = window.innerWidth;
@@ -89,11 +137,41 @@
         window.addEventListener('load', resizeCanvas);
         window.addEventListener('resize', resizeCanvas);
 
+        // --- SISTEMA DINÁMICO DE VENTANAS (BOTONES) ---
+        document.getElementById('addBtn').addEventListener('click', () => {
+            windowCounter++;
+            const newWin = document.createElement('div');
+            newWin.className = 'window';
+            // Posición aleatoria controlada para que aparezcan en el centro visible
+            const randomTop = Math.floor(Math.random() * 40) + 20;
+            const randomLeft = Math.floor(Math.random() * 30) + 25;
+            
+            newWin.style.top = `${randomTop}%`;
+            newWin.style.left = `${randomLeft}%`;
+            newWin.innerHTML = `
+                <div class="window-header">Ventana #${windowCounter}</div>
+                <div class="window-content">
+                    <p>Esta es una nueva interfaz flotante independiente. Puedes moverla de la misma forma.</p>
+                </div>
+            `;
+            document.getElementById('container').appendChild(newWin);
+        });
+
+        document.getElementById('removeBtn').addEventListener('click', () => {
+            const windows = document.querySelectorAll('.window');
+            // Eliminar solo si hay más de una ventana para no dejar el espacio vacío
+            if (windows.length > 1) {
+                windows[windows.length - 1].remove();
+            }
+        });
+
+
+        // --- CONFIGURACIÓN DE MEDIAPIPE ---
         const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
         hands.setOptions({ 
             maxNumHands: 2, 
             modelComplexity: 1, 
-            minDetectionConfidence: 0.7, // Subimos la confianza para evitar saltos falsos
+            minDetectionConfidence: 0.7, 
             minTrackingConfidence: 0.7 
         });
         
@@ -107,69 +185,70 @@
                 for (const landmarks of results.multiHandLandmarks) {
                     handDetectedThisFrame = true;
 
-                    // Dibujar el esqueleto en pantalla
+                    // Dibujar esqueleto (MediaPipe se dibuja directo ya que el CSS espeja todo el lienzo)
                     drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#ffffff', lineWidth: 2});
                     drawLandmarks(canvasCtx, landmarks, {color: '#00FF00', lineWidth: 1, radius: 3});
 
-                    // --- LOGICA DE GESTO (PINZA) ---
-                    // ID 4 = Punta del Pulgar, ID 8 = Punta del Índice
                     const thumb = landmarks[4];
                     const indexFinger = landmarks[8];
 
-                    // Convertir las coordenadas relativas (0 a 1) a píxeles de la pantalla
-                    // Nota: Invertimos el eje X (1 - x) porque las webcams por defecto muestran efecto espejo
-                    const thumbX = (1 - thumb.x) * window.innerWidth;
+                    // Al usar transform: scaleX(-1) en CSS, las coordenadas X nativas de MediaPipe (de 0 a 1) 
+                    // ya concuerdan perfectamente con la visualización reflejada en pantalla.
+                    const thumbX = thumb.x * window.innerWidth;
                     const thumbY = thumb.y * window.innerHeight;
-                    const indexX = (1 - indexFinger.x) * window.innerWidth;
+                    const indexX = indexFinger.x * window.innerWidth;
                     const indexY = indexFinger.y * window.innerHeight;
 
-                    // Calcular distancia matemática entre ambos dedos
+                    // Distancia e indicador de pinza
                     const distancia = Math.sqrt(Math.pow(indexX - thumbX, 2) + Math.pow(indexY - thumbY, 2));
-
-                    // El punto medio entre los dos dedos será nuestro "puntero de la mano"
                     const pointerX = (thumbX + indexX) / 2;
                     const pointerY = (thumbY + indexY) / 2;
 
-                    // Dibujar un círculo indicador en el punto de la pinza
                     canvasCtx.beginPath();
                     canvasCtx.arc(pointerX, pointerY, 8, 0, 2 * Math.PI);
                     canvasCtx.fillStyle = distancia < 45 ? '#00FF00' : '#FF0000';
                     canvasCtx.fill();
 
-                    // Obtener posición de la ventana
-                    const rect = ventana.getBoundingClientRect();
-
-                    // Si la distancia es menor a 45 píxeles, están "pellizcando"
+                    // --- ARRASTRE MULTI-VENTANA ---
                     if (distancia < 45) {
-                        if (!isHolding) {
-                            // Verificar si el puntero de la mano está dentro de los límites de la ventana
-                            if (pointerX >= rect.left && pointerX <= rect.right &&
-                                pointerY >= rect.top && pointerY <= rect.bottom) {
-                                isHolding = true;
-                                ventana.classList.add('holding');
-                                // Guardar la distancia desde donde se agarró respecto a la esquina superior izquierda de la ventana
-                                offsetX = pointerX - rect.left;
-                                offsetY = pointerY - rect.top;
+                        if (!activeHoldingWindow) {
+                            // Buscar en todas las ventanas cuál está bajo la mano
+                            const windows = document.querySelectorAll('.window');
+                            
+                            // Iteramos al revés para agarrar siempre la ventana que esté más al frente visualmente
+                            for (let i = windows.length - 1; i >= 0; i--) {
+                                const win = windows[i];
+                                const rect = win.getBoundingClientRect();
+
+                                if (pointerX >= rect.left && pointerX <= rect.right &&
+                                    pointerY >= rect.top && pointerY <= rect.bottom) {
+                                    
+                                    activeHoldingWindow = win;
+                                    win.classList.add('holding');
+                                    offsetX = pointerX - rect.left;
+                                    offsetY = pointerY - rect.top;
+                                    break; // Detener búsqueda tras encontrar la primera ventana coincidente
+                                }
                             }
                         } else {
-                            // Si ya la sostiene, mover la ventana siguiendo al puntero
-                            ventana.style.left = `${pointerX - offsetX}px`;
-                            ventana.style.top = `${pointerY - offsetY}px`;
+                            // Mover la ventana activa
+                            activeHoldingWindow.style.left = `${pointerX - offsetX}px`;
+                            activeHoldingWindow.style.top = `${pointerY - offsetY}px`;
                         }
                     } else {
-                        // Si abren los dedos, soltar la ventana
-                        if (isHolding) {
-                            isHolding = false;
-                            ventana.classList.remove('holding');
+                        // Soltar la ventana si se abren los dedos
+                        if (activeHoldingWindow) {
+                            activeHoldingWindow.classList.remove('holding');
+                            activeHoldingWindow = null;
                         }
                     }
                 }
             }
 
-            // Si no se detectan manos en el frame, soltar por seguridad
-            if (!handDetectedThisFrame && isHolding) {
-                isHolding = false;
-                ventana.classList.remove('holding');
+            // Soltar si la mano sale por completo de la cámara
+            if (!handDetectedThisFrame && activeHoldingWindow) {
+                activeHoldingWindow.classList.remove('holding');
+                activeHoldingWindow = null;
             }
 
             canvasCtx.restore();
