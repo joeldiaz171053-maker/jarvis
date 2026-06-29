@@ -3,974 +3,338 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus OS v2.0 - Quantum Spatial Framework</title>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>Navegador Inteligente - Sistema Joel</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
     <style>
         :root {
-            --sys-core: #00f0ff;
-            --sys-accent: #ff0055;
-            --sys-warn: #ffb800;
-            --sys-bg: #030509;
-            --sys-glass: rgba(10, 15, 25, 0.7);
-            --sys-border: rgba(0, 240, 255, 0.2);
-            --sys-text: #e0ffff;
-            --z-bg: 0; --z-particles: 1; --z-ar: 2; --z-desktop: 10; --z-taskbar: 9000; --z-cursor: 9999;
+            --bg-color: #0b0f19;
+            --accent-color: #00f2ff;
+            --card-bg: #1e293b;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
-        body, html { width: 100vw; height: 100vh; overflow: hidden; background: var(--sys-bg); font-family: 'Rajdhani', sans-serif; color: var(--sys-text); }
-        
-        #video-feed { position: absolute; width: 100%; height: 100%; object-fit: cover; opacity: 0.15; transform: scaleX(-1); z-index: var(--z-bg); filter: grayscale(100%) contrast(150%); }
-        #particle-engine, #ar-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-        #particle-engine { z-index: var(--z-particles); }
-        #ar-overlay { z-index: var(--z-ar); transform: scaleX(-1); }
-        
-        #workspace { position: absolute; width: 100%; height: 100%; z-index: var(--z-desktop); perspective: 1000px; }
-        
-        .hud-panel { position: absolute; padding: 15px; background: var(--sys-glass); border: 1px solid var(--sys-border); backdrop-filter: blur(10px); border-radius: 8px; }
-        #hud-top-left { top: 20px; left: 20px; border-left: 3px solid var(--sys-core); }
-        #hud-top-right { top: 20px; right: 20px; border-right: 3px solid var(--sys-accent); text-align: right; }
-        .hud-line { font-family: 'JetBrains Mono', monospace; font-size: 12px; margin-bottom: 5px; color: rgba(255,255,255,0.7); }
-        .hud-val { color: var(--sys-core); font-weight: bold; }
-        .hud-warn { color: var(--sys-warn); }
-        
-        .window {
-            position: absolute; display: flex; flex-direction: column; background: var(--sys-glass); border: 1px solid var(--sys-border);
-            border-radius: 12px; backdrop-filter: blur(20px); box-shadow: 0 20px 50px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,240,255,0.02);
-            transition: border-color 0.2s, box-shadow 0.2s, transform 0.1s cubic-bezier(0.1, 0.9, 0.2, 1); min-width: 250px; min-height: 150px;
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+            overflow-x: hidden;
         }
-        .window.active { border-color: var(--sys-core); box-shadow: 0 0 40px rgba(0,240,255,0.15), inset 0 0 20px rgba(0,240,255,0.05); }
-        .window.snapped { transition: all 0.3s cubic-bezier(0.1, 0.9, 0.2, 1); border-radius: 0; }
-        
-        .win-header {
-            display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: linear-gradient(90deg, rgba(0,240,255,0.1) 0%, transparent 100%);
-            border-bottom: 1px solid var(--sys-border); cursor: grab; font-weight: 600; letter-spacing: 1px;
+        header {
+            text-align: center;
+            margin-bottom: 30px;
         }
-        .win-header:active { cursor: grabbing; }
-        .win-title { display: flex; align-items: center; gap: 8px; font-size: 14px; text-transform: uppercase; }
-        .win-controls { display: flex; gap: 8px; }
-        .win-btn { width: 14px; height: 14px; border-radius: 50%; border: none; cursor: pointer; transition: transform 0.2s; }
-        .win-btn:hover { transform: scale(1.2); }
-        .btn-close { background: var(--sys-accent); }
-        .btn-max { background: var(--sys-core); }
-        .btn-min { background: var(--sys-warn); }
+        h1 { color: var(--accent-color); margin-bottom: 5px; }
         
-        .win-content { flex: 1; overflow: hidden; position: relative; background: rgba(0,0,0,0.4); display: flex; flex-direction: column; }
-        
-        .resizer { position: absolute; width: 10px; height: 10px; background: transparent; z-index: 10; }
-        .resizer.nw { top: -5px; left: -5px; cursor: nw-resize; } .resizer.ne { top: -5px; right: -5px; cursor: ne-resize; }
-        .resizer.sw { bottom: -5px; left: -5px; cursor: sw-resize; } .resizer.se { bottom: -5px; right: -5px; cursor: se-resize; }
-        .resizer.n { top: -5px; left: 5px; right: 5px; cursor: n-resize; } .resizer.s { bottom: -5px; left: 5px; right: 5px; cursor: s-resize; }
-        .resizer.e { top: 5px; bottom: 5px; right: -5px; cursor: e-resize; } .resizer.w { top: 5px; bottom: 5px; left: -5px; cursor: w-resize; }
+        /* Buscador */
+        .search-box {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+        .search-box input {
+            width: 50%;
+            padding: 15px 25px;
+            border-radius: 30px;
+            border: 2px solid #334155;
+            background: #1e293b;
+            color: white;
+            font-size: 16px;
+            outline: none;
+            transition: 0.3s;
+        }
+        .search-box input:focus { border-color: var(--accent-color); }
 
-        #taskbar {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); height: 60px; background: var(--sys-glass);
-            border: 1px solid var(--sys-border); border-radius: 30px; display: flex; align-items: center; padding: 0 20px; gap: 15px;
-            backdrop-filter: blur(15px); z-index: var(--z-taskbar); box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        /* Resultados del Navegador */
+        .resultados-container {
+            max-width: 800px;
+            margin: 0 auto;
         }
-        .task-icon {
-            width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid transparent;
-            display: flex; justify-content: center; align-items: center; color: var(--sys-text); cursor: pointer; transition: all 0.3s cubic-bezier(0.1, 0.9, 0.2, 1); position: relative;
+        .resultado-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            border-left: 5px solid transparent;
+            transition: 0.2s;
         }
-        .task-icon:hover { transform: translateY(-10px) scale(1.15); background: rgba(0,240,255,0.1); border-color: var(--sys-core); color: var(--sys-core); box-shadow: 0 10px 20px rgba(0,240,255,0.2); }
-        .task-icon.running::after { content: ''; position: absolute; bottom: -5px; width: 5px; height: 5px; border-radius: 50%; background: var(--sys-core); box-shadow: 0 0 10px var(--sys-core); }
-        .task-separator { width: 1px; height: 30px; background: var(--sys-border); margin: 0 10px; }
-        
-        #sys-menu {
-            position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px); width: 600px; height: 400px;
-            background: var(--sys-glass); border: 1px solid var(--sys-border); border-radius: 16px; backdrop-filter: blur(25px);
-            z-index: var(--z-taskbar); display: none; opacity: 0; transition: all 0.3s; padding: 20px;
-            grid-template-columns: 200px 1fr; gap: 20px;
+        .resultado-card.seleccionado {
+            border-left-color: var(--accent-color);
+            transform: scale(1.02);
+            background: #27354d;
         }
-        #sys-menu.open { display: grid; opacity: 1; transform: translateX(-50%) translateY(0); }
-        .menu-sidebar { border-right: 1px solid var(--sys-border); padding-right: 20px; display: flex; flex-direction: column; gap: 10px; }
-        .menu-main { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 15px; align-content: start; }
-        .app-tile { background: rgba(255,255,255,0.05); border: 1px solid transparent; border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; transition: 0.2s; }
-        .app-tile:hover { background: rgba(0,240,255,0.1); border-color: var(--sys-core); transform: translateY(-5px); }
-        .app-tile i { font-size: 24px; color: var(--sys-core); margin-bottom: 10px; }
-        
-        #spatial-cursor {
-            position: absolute; width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--sys-core);
-            z-index: var(--z-cursor); pointer-events: none; transform: translate(-50%, -50%);
-            display: flex; justify-content: center; align-items: center; transition: background 0.1s, transform 0.05s linear;
+        .resultado-card h3 { margin: 0 0 8px 0; color: var(--accent-color); }
+        .resultado-card p { margin: 0; color: #94a3b8; }
+
+        /* Vista de Cámara (Espejo) */
+        #contenedor-camara {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 240px;
+            height: 180px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid #334155;
+            transform: scaleX(-1); /* Efecto espejo */
         }
-        #spatial-cursor::before { content: ''; width: 8px; height: 8px; background: var(--sys-core); border-radius: 50%; box-shadow: 0 0 15px var(--sys-core); }
-        #spatial-cursor.pinch { background: rgba(0,240,255,0.3); transform: translate(-50%, -50%) scale(0.6); border-width: 4px; box-shadow: 0 0 20px var(--sys-core); }
-        #spatial-cursor.swipe { border-color: var(--sys-accent); border-style: dashed; animation: spin 1s linear infinite; }
-        @keyframes spin { 100% { transform: translate(-50%, -50%) rotate(360deg); } }
+        #webcam, #output-canvas {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+        }
 
-        /* App Styles */
-        .terminal-app { background: #000; color: #0f0; font-family: 'JetBrains Mono', monospace; padding: 10px; overflow-y: auto; font-size: 13px; height: 100%; display: flex; flex-direction: column; }
-        .term-history { flex: 1; overflow-y: auto; }
-        .term-input-line { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
-        .term-input { background: transparent; border: none; color: #0f0; font-family: 'JetBrains Mono', monospace; font-size: 13px; outline: none; flex: 1; text-shadow: 0 0 5px #0f0; caret-color: #0f0; }
-        
-        .monitor-app { padding: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; height: 100%; overflow-y: auto; }
-        .metric-card { background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; }
-        .metric-title { font-size: 12px; color: rgba(255,255,255,0.5); text-transform: uppercase; margin-bottom: 10px; }
-        .metric-canvas { width: 100%; height: 80px; margin-top: auto; }
-        
-        .viewer-3d { width: 100%; height: 100%; background: radial-gradient(circle at center, #111 0%, #000 100%); }
-        
-        .code-editor { font-family: 'JetBrains Mono', monospace; background: #1e1e1e; color: #d4d4d4; padding: 15px; height: 100%; overflow: auto; white-space: pre; font-size: 13px; line-height: 1.5; outline: none; }
-        .syntax-keyword { color: #569cd6; } .syntax-string { color: #ce9178; } .syntax-comment { color: #6a9955; }
-        
-        .audio-app { display: flex; flex-direction: column; height: 100%; padding: 15px; background: linear-gradient(180deg, #0a0a0a 0%, #000 100%); }
-        .audio-visualizer { flex: 1; width: 100%; border-radius: 8px; background: rgba(0,240,255,0.05); border: 1px solid var(--sys-border); }
-        .audio-controls { display: flex; justify-content: center; gap: 20px; margin-top: 15px; }
-        .audio-btn { width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; display: flex; justify-content: center; align-items: center; }
-        .audio-btn:hover { background: var(--sys-core); color: black; }
+        /* HUD Asistente Joel */
+        #hud-joel {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(11, 15, 25, 0.9);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            border: 8px solid var(--accent-color);
+            box-sizing: border-box;
+        }
+        .hud-contenido { text-align: center; max-width: 600px; }
+        .hud-contenido h2 { font-size: 3rem; color: var(--accent-color); animation: pulse 1.5s infinite; }
+        .hud-rutas { display: flex; gap: 20px; justify-content: center; margin-top: 30px; }
+        .ruta-card { background: #1e293b; padding: 20px; border-radius: 10px; border: 1px solid #334155; }
 
-        .settings-app { padding: 20px; color: white; }
-        .setting-group { margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 20px; }
-        .toggle-switch { position: relative; width: 50px; height: 24px; background: rgba(255,255,255,0.2); border-radius: 12px; cursor: pointer; transition: 0.3s; }
-        .toggle-switch.on { background: var(--sys-core); }
-        .toggle-knob { position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: white; transition: 0.3s; }
-        .toggle-switch.on .toggle-knob { transform: translateX(26px); }
-
-        /* VKB - Virtual Keyboard */
-        #vkb { position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%); width: 700px; background: var(--sys-glass); border: 1px solid var(--sys-border); border-radius: 12px; padding: 10px; display: none; flex-direction: column; gap: 5px; z-index: 9999; backdrop-filter: blur(20px); }
-        .vkb-row { display: flex; justify-content: center; gap: 5px; }
-        .vkb-key { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: white; padding: 10px 15px; cursor: pointer; text-align: center; transition: 0.1s; user-select: none; }
-        .vkb-key:active, .vkb-key.hovered { background: var(--sys-core); color: black; transform: scale(0.95); }
-        .vkb-key.space { flex-grow: 1; max-width: 300px; }
-        .vkb-key.special { background: rgba(255,255,255,0.05); color: var(--sys-warn); }
-
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
     </style>
 </head>
 <body>
 
-    <video id="video-feed" autoplay playsinline></video>
-    <canvas id="particle-engine"></canvas>
-    <canvas id="ar-overlay"></canvas>
+    <header>
+        <h1>SISTEMA JOEL v1.0</h1>
+        <p>Control por gestos de mano y comandos de voz activados</p>
+    </header>
 
-    <div id="workspace"></div>
-
-    <div id="hud-top-left" class="hud-panel">
-        <div class="hud-line">OS_KERNEL    : <span class="hud-val">NEXUS_V2.6.4</span></div>
-        <div class="hud-line">MEM_ALLOC    : <span class="hud-val" id="hud-mem">0.00 GB</span></div>
-        <div class="hud-line">PROCESSES    : <span class="hud-val" id="hud-proc">0</span></div>
-        <div class="hud-line">UPTIME       : <span class="hud-val" id="hud-uptime">00:00:00</span></div>
+    <div class="search-box">
+        <input type="text" id="buscador-input" placeholder="Escribe aquí para buscar (Ej: Inteligencia Artificial)...">
     </div>
 
-    <div id="hud-top-right" class="hud-panel">
-        <div class="hud-line">TRACK_STATE  : <span class="hud-warn" id="hud-track">INITIALIZING</span></div>
-        <div class="hud-line">LATENCY      : <span class="hud-val" id="hud-ping">-- ms</span></div>
-        <div class="hud-line">SYS_LOAD     : <span class="hud-val" id="hud-load">0%</span></div>
-        <div class="hud-line">GESTURE      : <span class="hud-val" id="hud-gesture">NONE</span></div>
+    <div class="resultados-container" id="resultados-web">
+        <div class="resultado-card seleccionado" data-index="0">
+            <h3>Bienvenido al Navegador Joel</h3>
+            <p>Mueve tu dedo índice hacia arriba o hacia abajo para desplazarte. Junta los dedos índice y pulgar para hacer click en una tarjeta de resultado.</p>
+        </div>
     </div>
 
-    <div id="sys-menu">
-        <div class="menu-sidebar">
-            <div style="display:flex; align-items:center; gap:10px; margin-bottom:20px;">
-                <div style="width:40px; height:40px; border-radius:50%; background:var(--sys-core); display:flex; justify-content:center; align-items:center; color:black;"><i data-lucide="user"></i></div>
-                <div>
-                    <div style="font-weight:bold;">Admin</div>
-                    <div style="font-size:12px; color:var(--sys-core);">Root Access</div>
+    <div id="contenedor-camara">
+        <video id="webcam" autoplay playsinline></video>
+        <canvas id="output-canvas"></canvas>
+    </div>
+
+    <div id="hud-joel">
+        <div class="hud-contenido">
+            <h2>🤖 MODO ASISTENCIA: JOEL</h2>
+            <p>He pausado el entorno para reorientarte. Esto es lo que puedes hacer ahora mismo:</p>
+            <div class="hud-rutas">
+                <div class="ruta-card">
+                    <h4>Desplazamiento</h4>
+                    <p>Mano arriba/abajo para navegar la lista.</p>
+                </div>
+                <div class="ruta-card">
+                    <h4>Seleccionar</h4>
+                    <p>Gesto de pinza (👌) para abrir un enlace.</p>
+                </div>
+                <div class="ruta-card">
+                    <h4>Salir</h4>
+                    <p>Di <strong>"Gracias Joel"</strong> para cerrar este menú.</p>
                 </div>
             </div>
-            <div class="hud-line" style="cursor:pointer;" onclick="sys.apps.launch('settings')"><i data-lucide="settings" style="width:14px; vertical-align:middle;"></i> Settings</div>
-            <div class="hud-line" style="cursor:pointer;" onclick="sys.powerOff()"><i data-lucide="power" style="width:14px; vertical-align:middle; color:var(--sys-accent);"></i> Power Off</div>
         </div>
-        <div class="menu-main" id="sys-menu-grid"></div>
-    </div>
-
-    <div id="taskbar">
-        <div class="task-icon" onclick="sys.ui.toggleMenu()" title="Start Menu"><i data-lucide="command"></i></div>
-        <div class="task-separator"></div>
-        <div id="task-dock" style="display:flex; gap:15px; height:100%; align-items:center;"></div>
-        <div class="task-separator"></div>
-        <div class="task-icon" onclick="sys.ui.toggleKeyboard()" title="Virtual Keyboard"><i data-lucide="keyboard"></i></div>
-        <div class="hud-line" id="task-clock" style="margin-left:10px; font-weight:bold; font-size:16px;">00:00</div>
-    </div>
-
-    <div id="vkb"></div>
-
-    <div id="spatial-cursor"></div>
-
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
-
-    <script>
-        lucide.createIcons();
-
-        /* =========================================================================
-           CORE SYSTEM (NEXUS OS)
-           ========================================================================= */
-
-        class MathUtils {
-            static lerp(start, end, amt) { return (1 - amt) * start + amt * end; }
-            static distance(x1, y1, x2, y2) { return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2)); }
-            static clamp(val, min, max) { return Math.min(Math.max(val, min), max); }
-            static uuid() { return Math.random().toString(36).substring(2, 15); }
-        }
-
-        class EventBus {
-            constructor() { this.events = {}; }
-            on(event, listener) { (this.events[event] || (this.events[event] = [])).push(listener); }
-            emit(event, data) { (this.events[event] || []).forEach(l => l(data)); }
-        }
-
-        /* -------------------------------------------------------------------------
-           VIRTUAL FILE SYSTEM
-           ------------------------------------------------------------------------- */
-        class VFS {
-            constructor() {
-                this.tree = {
-                    'root': { type: 'dir', content: {
-                        'sys': { type: 'dir', content: { 'kernel.log': { type: 'file', data: 'NEXUS BOOT OK\nINIT...' } } },
-                        'usr': { type: 'dir', content: { 'docs': { type: 'dir', content: {} } } },
-                        'config.json': { type: 'file', data: '{"theme":"dark", "ar":true}' }
-                    }}
-                };
-                this.currentPath = ['root'];
-            }
-            pwd() { return '/' + this.currentPath.join('/'); }
-            ls() {
-                let curr = this.tree;
-                for(let p of this.currentPath) curr = curr[p].content;
-                return Object.keys(curr).map(k => curr[k].type === 'dir' ? `<span style="color:var(--sys-core)">${k}/</span>` : k).join('  ');
-            }
-            cd(dir) {
-                if(dir === '..') { if(this.currentPath.length > 1) this.currentPath.pop(); return ''; }
-                let curr = this.tree;
-                for(let p of this.currentPath) curr = curr[p].content;
-                if(curr[dir] && curr[dir].type === 'dir') { this.currentPath.push(dir); return ''; }
-                return `cd: ${dir}: No such file or directory`;
-            }
-            read(file) {
-                let curr = this.tree;
-                for(let p of this.currentPath) curr = curr[p].content;
-                if(curr[file] && curr[file].type === 'file') return curr[file].data;
-                return `cat: ${file}: No such file`;
-            }
-        }
-
-        /* -------------------------------------------------------------------------
-           WINDOW MANAGER
-           ------------------------------------------------------------------------- */
-        class WindowManager {
-            constructor(workspace) {
-                this.workspace = workspace;
-                this.windows = new Map();
-                this.zIndexBase = 100;
-                this.dragState = { active: false, winId: null, ox: 0, oy: 0, type: 'move' };
-                this.resizeState = { active: false, winId: null, dir: '', sx: 0, sy: 0, sw: 0, sh: 0 };
-            }
-
-            create(appDef) {
-                const id = 'win_' + MathUtils.uuid();
-                const el = document.createElement('div');
-                el.className = 'window active';
-                el.id = id;
-                
-                const w = appDef.width || 600; const h = appDef.height || 400;
-                const x = (window.innerWidth / 2) - (w / 2) + (Math.random() * 50 - 25);
-                const y = (window.innerHeight / 2) - (h / 2) + (Math.random() * 50 - 25);
-                
-                el.style.width = w + 'px'; el.style.height = h + 'px';
-                el.style.left = x + 'px'; el.style.top = y + 'px';
-                el.style.zIndex = ++this.zIndexBase;
-
-                el.innerHTML = `
-                    <div class="win-header">
-                        <div class="win-title"><i data-lucide="${appDef.icon}"></i> ${appDef.name}</div>
-                        <div class="win-controls">
-                            <button class="win-btn btn-min" onclick="sys.wm.minimize('${id}')"></button>
-                            <button class="win-btn btn-max" onclick="sys.wm.maximize('${id}')"></button>
-                            <button class="win-btn btn-close" onclick="sys.wm.close('${id}')"></button>
-                        </div>
-                    </div>
-                    <div class="win-content" id="content_${id}"></div>
-                    ${['nw','ne','sw','se','n','s','e','w'].map(d => `<div class="resizer ${d}" data-dir="${d}"></div>`).join('')}
-                `;
-
-                el.addEventListener('mousedown', () => this.focus(id));
-                this.workspace.appendChild(el);
-                lucide.createIcons({root: el});
-                
-                this.windows.set(id, { el, appDef, maximized: false, prevRect: null, minimized: false });
-                sys.bus.emit('window_created', { id, appDef });
-                return id;
-            }
-
-            focus(id) {
-                if(!this.windows.has(id)) return;
-                this.windows.forEach(w => w.el.classList.remove('active'));
-                const win = this.windows.get(id);
-                win.el.style.zIndex = ++this.zIndexBase;
-                win.el.classList.add('active');
-                if(win.minimized) this.restore(id);
-                sys.bus.emit('window_focused', id);
-            }
-
-            close(id) {
-                if(!this.windows.has(id)) return;
-                const win = this.windows.get(id);
-                win.el.style.transform = 'scale(0.8)';
-                win.el.style.opacity = '0';
-                setTimeout(() => {
-                    win.el.remove();
-                    this.windows.delete(id);
-                    sys.bus.emit('window_closed', { id, appDef: win.appDef });
-                }, 150);
-            }
-
-            minimize(id) {
-                const win = this.windows.get(id);
-                win.el.style.transform = 'translateY(500px) scale(0.1)';
-                win.el.style.opacity = '0';
-                win.minimized = true;
-                setTimeout(() => win.el.style.display = 'none', 300);
-            }
-
-            restore(id) {
-                const win = this.windows.get(id);
-                win.el.style.display = 'flex';
-                setTimeout(() => {
-                    win.el.style.transform = 'translateY(0) scale(1)';
-                    win.el.style.opacity = '1';
-                    win.minimized = false;
-                }, 10);
-            }
-
-            maximize(id) {
-                const win = this.windows.get(id);
-                if(win.maximized) {
-                    win.el.style.left = win.prevRect.left; win.el.style.top = win.prevRect.top;
-                    win.el.style.width = win.prevRect.width; win.el.style.height = win.prevRect.height;
-                    win.el.classList.remove('snapped');
-                } else {
-                    win.prevRect = { left: win.el.style.left, top: win.el.style.top, width: win.el.style.width, height: win.el.style.height };
-                    win.el.style.left = '0'; win.el.style.top = '0';
-                    win.el.style.width = '100%'; win.el.style.height = 'calc(100% - 80px)';
-                    win.el.classList.add('snapped');
-                }
-                win.maximized = !win.maximized;
-            }
-
-            handleDragStart(x, y, id) {
-                this.focus(id);
-                const win = this.windows.get(id);
-                if(win.maximized) return;
-                const rect = win.el.getBoundingClientRect();
-                
-                // Check if on header (move)
-                if (y >= rect.top && y <= rect.top + 40 && x >= rect.left && x <= rect.right) {
-                    this.dragState = { active: true, winId: id, ox: x - rect.left, oy: y - rect.top, type: 'move' };
-                } else {
-                    // Check resizers
-                    const resizers = Array.from(win.el.querySelectorAll('.resizer'));
-                    for(let r of resizers) {
-                        const rRect = r.getBoundingClientRect();
-                        if(x >= rRect.left && x <= rRect.right && y >= rRect.top && y <= rRect.bottom) {
-                            this.resizeState = { active: true, winId: id, dir: r.dataset.dir, sx: x, sy: y, sw: rect.width, sh: rect.height, sl: rect.left, st: rect.top };
-                            break;
-                        }
-                    }
-                }
-            }
-
-            handleDragMove(x, y) {
-                if (this.dragState.active) {
-                    const win = this.windows.get(this.dragState.winId);
-                    win.el.style.left = `${x - this.dragState.ox}px`;
-                    win.el.style.top = `${y - this.dragState.oy}px`;
-                } else if (this.resizeState.active) {
-                    const st = this.resizeState;
-                    const win = this.windows.get(st.winId);
-                    const dx = x - st.sx; const dy = y - st.sy;
-                    let nw = st.sw, nh = st.sh, nl = st.sl, nt = st.st;
-
-                    if(st.dir.includes('e')) nw = st.sw + dx;
-                    if(st.dir.includes('s')) nh = st.sh + dy;
-                    if(st.dir.includes('w')) { nw = st.sw - dx; nl = st.sl + dx; }
-                    if(st.dir.includes('n')) { nh = st.sh - dy; nt = st.st + dy; }
-
-                    if(nw > 200) { win.el.style.width = nw + 'px'; win.el.style.left = nl + 'px'; }
-                    if(nh > 100) { win.el.style.height = nh + 'px'; win.el.style.top = nt + 'px'; }
-                }
-            }
-
-            handleDragEnd() {
-                this.dragState.active = false;
-                this.resizeState.active = false;
-            }
-        }
-
-        /* -------------------------------------------------------------------------
-           APPLICATIONS CORE
-           ------------------------------------------------------------------------- */
-        const Applications = {
-            terminal: {
-                name: 'Terminal', icon: 'terminal', width: 600, height: 400,
-                init: (id, container) => {
-                    container.innerHTML = `
-                        <div class="terminal-app" id="app_${id}">
-                            <div class="term-history" id="th_${id}">Nexus OS Terminal v2.6<br>Type 'help' for commands.<br></div>
-                            <div class="term-input-line">
-                                <span>sys@nexus:~#</span>
-                                <input type="text" class="term-input" id="ti_${id}" autocomplete="off">
-                            </div>
-                        </div>`;
-                    const inp = document.getElementById(`ti_${id}`);
-                    const hist = document.getElementById(`th_${id}`);
-                    
-                    inp.addEventListener('keydown', (e) => {
-                        if(e.key === 'Enter') {
-                            const val = inp.value.trim();
-                            hist.innerHTML += `<div>sys@nexus:~# ${val}</div>`;
-                            inp.value = '';
-                            
-                            const args = val.split(' ');
-                            const cmd = args.shift();
-                            let out = '';
-                            
-                            switch(cmd) {
-                                case 'help': out = 'Available cmds: help, clear, date, echo, ls, cd, cat, top'; break;
-                                case 'clear': hist.innerHTML = ''; break;
-                                case 'date': out = new Date().toString(); break;
-                                case 'echo': out = args.join(' '); break;
-                                case 'ls': out = sys.vfs.ls(); break;
-                                case 'cd': out = sys.vfs.cd(args[0] || ''); break;
-                                case 'cat': out = sys.vfs.read(args[0] || ''); break;
-                                case 'top': out = `CPU: ${sys.metrics.load.toFixed(1)}% | RAM: ${(sys.metrics.ram/1024).toFixed(2)}GB`; break;
-                                case '': break;
-                                default: out = `Command not found: ${cmd}`;
-                            }
-                            if(out) hist.innerHTML += `<div style="color:#aaa">${out}</div>`;
-                            hist.scrollTop = hist.scrollHeight;
-                        }
-                    });
-                    inp.focus();
-                }
-            },
-            monitor: {
-                name: 'Sys Monitor', icon: 'activity', width: 500, height: 350,
-                init: (id, container) => {
-                    container.innerHTML = `
-                        <div class="monitor-app">
-                            <div class="metric-card"><div class="metric-title">CPU Load</div><canvas id="c_cpu_${id}" class="metric-canvas"></canvas></div>
-                            <div class="metric-card"><div class="metric-title">RAM Usage</div><canvas id="c_ram_${id}" class="metric-canvas"></canvas></div>
-                            <div class="metric-card"><div class="metric-title">Network I/O</div><canvas id="c_net_${id}" class="metric-canvas"></canvas></div>
-                            <div class="metric-card"><div class="metric-title">GPU Temp</div><div style="font-size:36px; color:var(--sys-core); margin:auto;">45°C</div></div>
-                        </div>`;
-                    
-                    const createChart = (ctxId, color) => {
-                        return new Chart(document.getElementById(ctxId).getContext('2d'), {
-                            type: 'line', data: { labels: Array(20).fill(''), datasets: [{ data: Array(20).fill(0), borderColor: color, borderWidth: 2, tension: 0.4 }] },
-                            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false, min: 0, max: 100 } }, animation: false }
-                        });
-                    };
-
-                    const charts = { cpu: createChart(`c_cpu_${id}`, '#00f0ff'), ram: createChart(`c_ram_${id}`, '#ff0055'), net: createChart(`c_net_${id}`, '#00ff55') };
-                    
-                    const interval = setInterval(() => {
-                        if(!document.getElementById(`c_cpu_${id}`)) return clearInterval(interval);
-                        
-                        charts.cpu.data.datasets[0].data.push(sys.metrics.load); charts.cpu.data.datasets[0].data.shift(); charts.cpu.update();
-                        const ramP = (sys.metrics.ram / 16384) * 100;
-                        charts.ram.data.datasets[0].data.push(ramP); charts.ram.data.datasets[0].data.shift(); charts.ram.update();
-                        charts.net.data.datasets[0].data.push(Math.random() * 100); charts.net.data.datasets[0].data.shift(); charts.net.update();
-                    }, 1000);
-                }
-            },
-            viewer3d: {
-                name: 'AR Modeler', icon: 'box', width: 600, height: 500,
-                init: (id, container) => {
-                    container.innerHTML = `<div class="viewer-3d" id="v3d_${id}"></div>`;
-                    const el = document.getElementById(`v3d_${id}`);
-                    const scene = new THREE.Scene();
-                    const camera = new THREE.PerspectiveCamera(75, el.clientWidth / el.clientHeight, 0.1, 1000);
-                    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-                    renderer.setSize(el.clientWidth, el.clientHeight);
-                    el.appendChild(renderer.domElement);
-
-                    const geometry = new THREE.TorusKnotGeometry(1, 0.3, 100, 16);
-                    const material = new THREE.MeshNormalMaterial({ wireframe: true });
-                    const torus = new THREE.Mesh(geometry, material);
-                    scene.add(torus);
-                    camera.position.z = 3;
-
-                    let rotX = 0.01, rotY = 0.01;
-                    sys.bus.on('gesture_swipe', dir => {
-                        if (sys.wm.dragState.winId === id || !sys.wm.dragState.active) {
-                            if(dir==='left') rotY = -0.05; if(dir==='right') rotY = 0.05;
-                            if(dir==='up') rotX = -0.05; if(dir==='down') rotX = 0.05;
-                            setTimeout(()=> { rotX = 0.01; rotY = 0.01; }, 500);
-                        }
-                    });
-
-                    const animate = function () {
-                        if(!document.getElementById(`v3d_${id}`)) return;
-                        requestAnimationFrame(animate);
-                        torus.rotation.x += rotX; torus.rotation.y += rotY;
-                        renderer.render(scene, camera);
-                    };
-                    animate();
-
-                    const resizeOb = new ResizeObserver(() => {
-                        camera.aspect = el.clientWidth / el.clientHeight;
-                        camera.updateProjectionMatrix();
-                        renderer.setSize(el.clientWidth, el.clientHeight);
-                    });
-                    resizeOb.observe(el);
-                }
-            },
-            code: {
-                name: 'Code IDE', icon: 'code', width: 700, height: 500,
-                init: (id, container) => {
-                    container.innerHTML = `<div class="code-editor" contenteditable="true" spellcheck="false" id="code_${id}">// Initializing System Kernel Module...\n\nfunction bootSequence() {\n  const memory = allocate(1024);\n  console.log("Memory ready: " + memory);\n  return true;\n}\n\nbootSequence();</div>`;
-                    // Basic syntax highlighting mockup triggered on input
-                    const el = document.getElementById(`code_${id}`);
-                    el.addEventListener('input', () => {
-                        // In a real scenario, use AST parser, simple regex mock here
-                        let html = el.innerHTML.replace(/function/g, '<span class="syntax-keyword">function</span>')
-                                               .replace(/const/g, '<span class="syntax-keyword">const</span>')
-                                               .replace(/return/g, '<span class="syntax-keyword">return</span>');
-                        // Resetting innerHTML breaks caret, so skipped deep real-time regex in this mockup to preserve functionality
-                    });
-                }
-            },
-            audio: {
-                name: 'Audio Synapse', icon: 'music', width: 400, height: 300,
-                init: (id, container) => {
-                    container.innerHTML = `
-                        <div class="audio-app">
-                            <canvas id="aud_${id}" class="audio-visualizer"></canvas>
-                            <div class="audio-controls">
-                                <button class="audio-btn"><i data-lucide="skip-back"></i></button>
-                                <button class="audio-btn" style="width:50px;height:50px;background:var(--sys-core);color:black;"><i data-lucide="play"></i></button>
-                                <button class="audio-btn"><i data-lucide="skip-forward"></i></button>
-                            </div>
-                        </div>`;
-                    const ctx = document.getElementById(`aud_${id}`).getContext('2d');
-                    let frame;
-                    const draw = () => {
-                        if(!document.getElementById(`aud_${id}`)) return cancelAnimationFrame(frame);
-                        ctx.clearRect(0, 0, 300, 150);
-                        ctx.fillStyle = 'rgba(0, 240, 255, 0.8)';
-                        for(let i=0; i<30; i++) {
-                            const h = Math.random() * 100 + 10;
-                            ctx.fillRect(i * 10 + 5, 150 - h, 5, h);
-                        }
-                        frame = requestAnimationFrame(draw);
-                    };
-                    draw();
-                }
-            }
-        };
-
-        /* -------------------------------------------------------------------------
-           PARTICLE ENGINE (Aesthetic BG)
-           ------------------------------------------------------------------------- */
-        class ParticleEngine {
-            constructor(canvasId) {
-                this.canvas = document.getElementById(canvasId);
-                this.ctx = this.canvas.getContext('2d');
-                this.particles = [];
-                this.mx = -1000; this.my = -1000;
-                this.resize();
-                window.addEventListener('resize', () => this.resize());
-                for(let i=0; i<100; i++) this.particles.push(this.createParticle());
-                this.animate();
-            }
-            resize() { this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; }
-            createParticle() {
-                return { x: Math.random() * this.canvas.width, y: Math.random() * this.canvas.height, vx: (Math.random() - 0.5) * 0.5, vy: (Math.random() - 0.5) * 0.5, r: Math.random() * 2 + 1 };
-            }
-            setTarget(x, y) { this.mx = x; this.my = y; }
-            animate() {
-                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-                this.ctx.fillStyle = 'rgba(0, 240, 255, 0.5)';
-                this.ctx.strokeStyle = 'rgba(0, 240, 255, 0.1)';
-                
-                this.particles.forEach((p, i) => {
-                    p.x += p.vx; p.y += p.vy;
-                    if(p.x < 0 || p.x > this.canvas.width) p.vx *= -1;
-                    if(p.y < 0 || p.y > this.canvas.height) p.vy *= -1;
-                    
-                    const dist = MathUtils.distance(p.x, p.y, this.mx, this.my);
-                    if(dist < 150) {
-                        p.x += (p.x - this.mx) * 0.02; p.y += (p.y - this.my) * 0.02;
-                        this.ctx.beginPath(); this.ctx.moveTo(p.x, p.y); this.ctx.lineTo(this.mx, this.my); this.ctx.stroke();
-                    }
-                    
-                    this.ctx.beginPath(); this.ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); this.ctx.fill();
-                    
-                    for(let j=i+1; j<this.particles.length; j++) {
-                        const p2 = this.particles[j];
-                        if(MathUtils.distance(p.x, p.y, p2.x, p2.y) < 80) {
-                            this.ctx.beginPath(); this.ctx.moveTo(p.x, p.y); this.ctx.lineTo(p2.x, p2.y); this.ctx.stroke();
-                        }
-                    }
-                });
-                requestAnimationFrame(() => this.animate());
-            }
-        }
-
-        /* -------------------------------------------------------------------------
-           GESTURE / SPATIAL TRACKING
-           ------------------------------------------------------------------------- */
-        class SpatialTracker {
-            constructor(videoEl, canvasEl) {
-                this.video = document.getElementById(videoEl);
-                this.canvas = document.getElementById(canvasEl);
-                this.ctx = this.canvas.getContext('2d');
-                
-                this.cursor = document.getElementById('spatial-cursor');
-                this.cx = window.innerWidth / 2; this.cy = window.innerHeight / 2;
-                this.targetX = this.cx; this.targetY = this.cy;
-                
-                this.hands = new Hands({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
-                this.hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
-                this.hands.onResults(this.onResults.bind(this));
-                
-                this.camera = new Camera(this.video, { onFrame: async () => await this.hands.send({image: this.video}), width: 1280, height: 720 });
-                this.isPinching = false;
-                
-                this.resize();
-                window.addEventListener('resize', () => this.resize());
-                
-                this.loop();
-            }
-
-            resize() { this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; }
-
-            onResults(results) {
-                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-                sys.ui.updateTrackState(results.multiHandLandmarks?.length > 0);
-
-                if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                    const landmarks = results.multiHandLandmarks[0];
-                    drawConnectors(this.ctx, landmarks, HAND_CONNECTIONS, {color: 'rgba(0, 240, 255, 0.2)', lineWidth: 2});
-                    drawLandmarks(this.ctx, landmarks, {color: 'var(--sys-core)', lineWidth: 1, radius: 2});
-
-                    // Index Tip (8), Thumb Tip (4), Middle Tip (12)
-                    const index = landmarks[8]; const thumb = landmarks[4];
-                    
-                    // Coordinates mapping (mirrored)
-                    this.targetX = (1 - index.x) * window.innerWidth;
-                    this.targetY = index.y * window.innerHeight;
-
-                    // Gesture Logic
-                    const pinchDist = Math.hypot((1 - index.x) - (1 - thumb.x), index.y - thumb.y);
-                    const newPinch = pinchDist < 0.05;
-                    
-                    if (newPinch && !this.isPinching) {
-                        this.isPinching = true;
-                        this.cursor.classList.add('pinch');
-                        sys.bus.emit('interaction_start', { x: this.cx, y: this.cy });
-                        sys.ui.simulateClick(this.cx, this.cy);
-                    } else if (!newPinch && this.isPinching) {
-                        this.isPinching = false;
-                        this.cursor.classList.remove('pinch');
-                        sys.bus.emit('interaction_end');
-                    }
-                    
-                    sys.particles.setTarget(this.cx, this.cy);
-                } else {
-                    sys.particles.setTarget(-1000, -1000);
-                }
-            }
-
-            loop() {
-                // Kalman-style Lerp filtering for smooth cursor
-                this.cx = MathUtils.lerp(this.cx, this.targetX, 0.3);
-                this.cy = MathUtils.lerp(this.cy, this.targetY, 0.3);
-                
-                this.cursor.style.left = `${this.cx}px`;
-                this.cursor.style.top = `${this.cy}px`;
-                
-                if(this.isPinching) {
-                    sys.bus.emit('interaction_move', { x: this.cx, y: this.cy });
-                }
-
-                // Hover physics simulation
-                sys.ui.checkHover(this.cx, this.cy);
-
-                requestAnimationFrame(this.loop.bind(this));
-            }
-
-            start() { this.camera.start(); }
-        }
-
-        /* -------------------------------------------------------------------------
-           USER INTERFACE MANAGER
-           ------------------------------------------------------------------------- */
-        class UIManager {
-            constructor() {
-                this.els = {
-                    mem: document.getElementById('hud-mem'),
-                    proc: document.getElementById('hud-proc'),
-                    time: document.getElementById('hud-uptime'),
-                    track: document.getElementById('hud-track'),
-                    ping: document.getElementById('hud-ping'),
-                    load: document.getElementById('hud-load'),
-                    dock: document.getElementById('task-dock'),
-                    menu: document.getElementById('sys-menu'),
-                    grid: document.getElementById('sys-menu-grid'),
-                    vkb: document.getElementById('vkb')
-                };
-                
-                this.buildMenu();
-                this.buildVKB();
-                
-                setInterval(() => {
-                    const d = new Date();
-                    document.getElementById('task-clock').innerText = `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
-                }, 1000);
-            }
-
-            buildMenu() {
-                this.els.grid.innerHTML = Object.entries(Applications).map(([key, app]) => 
-                    `<div class="app-tile" onclick="sys.apps.launch('${key}'); sys.ui.toggleMenu();">
-                        <i data-lucide="${app.icon}"></i>
-                        <div>${app.name}</div>
-                    </div>`
-                ).join('');
-                lucide.createIcons({root: this.els.grid});
-            }
-
-            buildVKB() {
-                const layout = [
-                    ['q','w','e','r','t','y','u','i','o','p'],
-                    ['a','s','d','f','g','h','j','k','l'],
-                    ['z','x','c','v','b','n','m','Backspace'],
-                    ['Space', 'Enter']
-                ];
-                
-                this.els.vkb.innerHTML = layout.map(row => 
-                    `<div class="vkb-row">
-                        ${row.map(k => {
-                            let classes = 'vkb-key';
-                            if(k==='Space') classes += ' space';
-                            if(k==='Backspace'||k==='Enter') classes += ' special';
-                            return `<div class="${classes}" data-key="${k}">${k}</div>`;
-                        }).join('')}
-                    </div>`
-                ).join('');
-                
-                this.els.vkb.querySelectorAll('.vkb-key').forEach(k => {
-                    k.addEventListener('mousedown', () => this.typeKey(k.dataset.key));
-                });
-            }
-
-            typeKey(key) {
-                const activeEl = document.activeElement;
-                if(activeEl && (activeEl.tagName === 'INPUT' || activeEl.isContentEditable)) {
-                    if(key === 'Backspace') {
-                        if(activeEl.tagName === 'INPUT') activeEl.value = activeEl.value.slice(0, -1);
-                        else activeEl.innerText = activeEl.innerText.slice(0, -1);
-                    } else if(key === 'Space') {
-                        if(activeEl.tagName === 'INPUT') activeEl.value += ' ';
-                        else activeEl.innerText += ' ';
-                    } else if(key === 'Enter') {
-                        activeEl.dispatchEvent(new KeyboardEvent('keydown', {'key': 'Enter'}));
-                    } else {
-                        if(activeEl.tagName === 'INPUT') activeEl.value += key;
-                        else activeEl.innerText += key;
-                    }
-                }
-            }
-
-            toggleMenu() { this.els.menu.classList.toggle('open'); }
-            toggleKeyboard() { this.els.vkb.style.display = this.els.vkb.style.display === 'flex' ? 'none' : 'flex'; }
-
-            updateTrackState(locked) {
-                this.els.track.innerText = locked ? 'LOCKED' : 'SEARCHING';
-                this.els.track.style.color = locked ? 'var(--sys-core)' : 'var(--sys-warn)';
-            }
-
-            updateMetrics(metrics, processes) {
-                this.els.mem.innerText = (metrics.ram / 1024).toFixed(2) + ' GB';
-                this.els.proc.innerText = processes;
-                this.els.load.innerText = metrics.load.toFixed(1) + '%';
-                this.els.ping.innerText = Math.floor(Math.random() * 5 + 10) + ' ms';
-                
-                const up = Math.floor((Date.now() - sys.bootTime) / 1000);
-                const h = Math.floor(up / 3600); const m = Math.floor((up % 3600)/60); const s = up % 60;
-                this.els.time.innerText = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
-            }
-
-            updateDock(windowsMap) {
-                const activeApps = Array.from(windowsMap.values()).map(w => w.appDef);
-                // Unique apps
-                const uniqueApps = [...new Map(activeApps.map(item => [item.name, item])).values()];
-                
-                this.els.dock.innerHTML = uniqueApps.map(app => 
-                    `<div class="task-icon running" title="${app.name}"><i data-lucide="${app.icon}"></i></div>`
-                ).join('');
-                lucide.createIcons({root: this.els.dock});
-            }
-
-            checkHover(x, y) {
-                // Simulated hover for virtual keyboard keys
-                if(this.els.vkb.style.display === 'flex') {
-                    this.els.vkb.querySelectorAll('.vkb-key').forEach(k => {
-                        const r = k.getBoundingClientRect();
-                        if(x > r.left && x < r.right && y > r.top && y < r.bottom) k.classList.add('hovered');
-                        else k.classList.remove('hovered');
-                    });
-                }
-            }
-
-            simulateClick(x, y) {
-                // DOM elementFromPoint approach for spatial clicking
-                this.els.vkb.style.pointerEvents = 'none'; // Temporarily ignore overlay
-                const el = document.elementFromPoint(x, y);
-                this.els.vkb.style.pointerEvents = 'auto';
-                
-                if (el) {
-                    if (el.classList.contains('vkb-key')) {
-                        this.typeKey(el.dataset.key);
-                        el.style.transform = 'scale(0.9)'; setTimeout(() => el.style.transform = '', 100);
-                    } else if (el.tagName === 'INPUT' || el.isContentEditable) {
-                        el.focus();
-                    } else if (el.onclick || el.classList.contains('win-btn') || el.classList.contains('task-icon') || el.classList.contains('app-tile')) {
-                        el.click();
-                    }
-                }
-            }
-        }
-
-        /* -------------------------------------------------------------------------
-           SYSTEM KERNEL (Controller)
-           ------------------------------------------------------------------------- */
-        class NexusCore {
-            constructor() {
-                this.bootTime = Date.now();
-                this.metrics = { load: 0, ram: 1024 };
-                this.bus = new EventBus();
-                this.vfs = new VFS();
-                
-                this.wm = new WindowManager(document.getElementById('workspace'));
-                this.ui = new UIManager();
-                this.particles = new ParticleEngine('particle-engine');
-                this.tracker = new SpatialTracker('video-feed', 'ar-overlay');
-                
-                this.apps = {
-                    launch: (key) => {
-                        const def = Applications[key];
-                        if(def) {
-                            const id = this.wm.create(def);
-                            def.init(id, document.getElementById(`content_${id}`));
-                            this.metrics.ram += Math.random() * 200 + 50;
-                        }
-                    }
-                };
-
-                this.bindEvents();
-                this.systemLoop();
-                this.tracker.start();
-                
-                // Boot apps
-                setTimeout(() => this.apps.launch('terminal'), 1000);
-                setTimeout(() => this.apps.launch('monitor'), 1500);
-            }
-
-            bindEvents() {
-                this.bus.on('interaction_start', pos => {
-                    const target = document.elementFromPoint(pos.x, pos.y);
-                    if(target) {
-                        const win = target.closest('.window');
-                        if(win) this.wm.handleDragStart(pos.x, pos.y, win.id);
-                    }
-                });
-                this.bus.on('interaction_move', pos => this.wm.handleDragMove(pos.x, pos.y));
-                this.bus.on('interaction_end', () => this.wm.handleDragEnd());
-                
-                this.bus.on('window_created', () => this.ui.updateDock(this.wm.windows));
-                this.bus.on('window_closed', () => { this.ui.updateDock(this.wm.windows); this.metrics.ram -= 150; });
-            }
-
-            systemLoop() {
-                // Metric generation
-                this.metrics.load = MathUtils.clamp(this.metrics.load + (Math.random() * 10 - 5), 5, 95);
-                this.metrics.ram = MathUtils.clamp(this.metrics.ram + (Math.random() * 20 - 10), 1024, 16384);
-                
-                this.ui.updateMetrics(this.metrics, this.wm.windows.size);
-                
-                setTimeout(() => requestAnimationFrame(this.systemLoop.bind(this)), 1000);
-            }
-
-            powerOff() {
-                document.body.innerHTML = '<div style="display:flex; height:100vh; justify-content:center; align-items:center; font-size:24px; color:#ff0055; font-family:monospace;">SYSTEM HALTED. IT IS NOW SAFE TO TURN OFF YOUR COMPUTER.</div>';
-            }
-        }
-
-        // Initialize OS
-        const sys = new NexusCore();
-        
-        // Desktop Click to close menus
-        document.getElementById('workspace').addEventListener('mousedown', (e) => {
-            if(e.target.id === 'workspace') sys.ui.els.menu.classList.remove('open');
-        });
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8"><title>Nexus OS Control</title>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <style>
-        body{margin:0;background:#02050a;color:#0ff;font-family:monospace;overflow:hidden}
-        #feed{position:absolute;width:100%;height:100%;transform:scaleX(-1);opacity:0.2}
-        #cursor{position:absolute;width:20px;height:20px;border:2px solid #fff;border-radius:50%;z-index:999;pointer-events:none}
-        .window{position:absolute;width:300px;height:200px;background:rgba(0,50,100,0.8);border:1px solid #0ff;cursor:move;padding:10px}
-    </style>
-</head>
-<body>
-    <video id="feed" autoplay playsinline></video>
-    <div id="cursor"></div>
-    <div id="workspace">
-        <div class="window" style="top:100px;left:100px">App Navegador</div>
-        <div class="window" style="top:100px;left:450px">App Sistema</div>
     </div>
 
     <script>
-        const cursor = document.getElementById('cursor');
-        let activeWin = null;
+        // Elementos del DOM
+        const videoElement = document.getElementById('webcam');
+        const canvasElement = document.getElementById('output-canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const hudJoel = document.getElementById('hud-joel');
+        const buscadorInput = document.getElementById('buscador-input');
+        const resultadosWeb = document.getElementById('resultados-web');
 
-        const hands = new Hands({locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
-        hands.setOptions({maxNumHands: 1, minDetectionConfidence: 0.7});
-        
-        hands.onResults(res => {
-            if(res.multiHandLandmarks?.length){
-                const i = res.multiHandLandmarks[0][8];
-                const x = (1-i.x) * window.innerWidth, y = i.y * window.innerHeight;
-                const z = Math.abs(i.z * 100); // Proximidad: > 15 es "clic" o "presión"
+        let posicionYAnterior = null;
+        let indiceSeleccionado = 0;
+        let controlBloqueadoPorVoz = false;
 
-                cursor.style.left = x + 'px'; cursor.style.top = y + 'px';
+        // --- 1. CONFIGURACIÓN DEL OÍDO (Web Speech API) ---
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'es-ES';
+            recognition.continuous = true;
+            recognition.interimResults = false;
 
-                // Interacción con ventanas
-                const el = document.elementFromPoint(x, y);
-                if(el?.classList.contains('window')) {
-                    if(z > 15) { // Gesto de empuje (Proximidad)
-                        activeWin = el;
-                        activeWin.style.borderColor = '#fff';
+            recognition.onresult = (event) => {
+                const frase = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
+                console.log("Voz detectada: ", frase);
+
+                if (frase.includes("joel ayúdame") || frase.includes("joel ayudame")) {
+                    activarAsistenciaJoel();
+                } else if (frase.includes("gracias joel")) {
+                    desactivarAsistenciaJoel();
+                }
+            };
+
+            recognition.start();
+        } else {
+            alert("Tu navegador no soporta reconocimiento de voz nativo. Usa Google Chrome.");
+        }
+
+        function activarAsistenciaJoel() {
+            controlBloqueadoPorVoz = true;
+            hudJoel.style.display = 'flex';
+            // Respuesta por síntesis de voz (Opcional, estilo Jarvis)
+            responderVoz("Entendido. He activado el panel de asistencia general.");
+        }
+
+        function desactivarAsistenciaJoel() {
+            controlBloqueadoPorVoz = false;
+            hudJoel.style.display = 'none';
+        }
+
+        function responderVoz(texto) {
+            const synth = window.speechSynthesis;
+            const utterThis = new SpeechSynthesisUtterance(texto);
+            utterThis.lang = 'es-ES';
+            synth.speak(utterThis);
+        }
+
+        // --- 2. MOTOR DE BÚSQUEDA REAL / SIMULADO ---
+        const baseDeDatosBusqueda = {
+            "inteligencia artificial": [
+                { t: "¿Qué es la IA?", d: "Definición, conceptos básicos y el futuro de las redes neuronales artificiales." },
+                { t: "MediaPipe Hands en JavaScript", d: "Cómo implementar tracking de manos en tiempo real sin servidores externos." },
+                { t: "Modelos de Lenguaje Avanzados", d: "Explora cómo funcionan los asistentes virtuales modernos de última generación." }
+            ],
+            "predeterminado": [
+                { t: "Resultado de Búsqueda Web 1", d: "Este es un resultado interactivo real obtenido a través de tu petición de navegación." },
+                { t: "Resultado de Búsqueda Web 2", d: "Puedes navegar entre estos elementos usando la posición vertical de tus dedos." },
+                { t: "Resultado de Búsqueda Web 3", d: "Asegúrate de tener buena iluminación para que la cámara no pierda los puntos de referencia." }
+            ]
+        };
+
+        buscadorInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            renderizarResultados(query);
+        });
+
+        function renderizarResultados(query) {
+            const resultados = baseDeDatosBusqueda[query] || baseDeDatosBusqueda["predeterminado"];
+            resultadosWeb.innerHTML = "";
+            
+            resultados.forEach((res, index) => {
+                const card = document.createElement('div');
+                card.className = `resultado-card ${index === 0 ? 'seleccionado' : ''}`;
+                card.setAttribute('data-index', index);
+                card.innerHTML = `<h3>${res.t}</h3><p>${res.d}</p>`;
+                resultadosWeb.appendChild(card);
+            });
+            indiceSeleccionado = 0;
+        }
+
+        function actualizarSeleccionVisual(nuevoIndice) {
+            const cards = document.querySelectorAll('.resultado-card');
+            if(cards.length === 0) return;
+            
+            if(nuevoIndice >= 0 && nuevoIndice < cards.length) {
+                cards[indiceSeleccionado].classList.remove('seleccionado');
+                indiceSeleccionado = nuevoIndice;
+                cards[indiceSeleccionado].classList.add('seleccionado');
+                cards[indiceSeleccionado].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        // --- 3. CONFIGURACIÓN DE MEDIAPIPE (Detección y Puntos de Referencia) ---
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.7,
+            minTrackingConfidence: 0.7
+        });
+
+        hands.onResults((results) => {
+            // Limpiar canvas
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const puntosMano = results.multiHandLandmarks[0];
+
+                // Dibujar puntos de referencia esenciales en la pantalla para feedback visual
+                dibujarPuntosClave(puntosMano);
+
+                if (controlBloqueadoPorVoz) return; // Si Joel está ayudando, congelamos las interacciones de fondo
+
+                // --- LÓGICA DE GESTOS ---
+                const puntoIndice = puntosMano[8]; // Punta del índice
+                const puntoPulgar = puntosMano[4]; // Punta del pulgar
+
+                // Gesto 1: Desplazamiento (Scroll / Selección de tarjetas por movimiento vertical)
+                if (posicionYAnterior !== null) {
+                    const diffY = puntoIndice.y - posicionYAnterior;
+                    if (diffY > 0.05) { // Movimiento rápido hacia abajo
+                        actualizarSeleccionVisual(indiceSeleccionado + 1);
+                        posicionYAnterior = puntoIndice.y;
+                    } else if (diffY < -0.05) { // Movimiento rápido hacia arriba
+                        actualizarSeleccionVisual(indiceSeleccionado - 1);
+                        posicionYAnterior = puntoIndice.y;
                     }
+                } else {
+                    posicionYAnterior = puntoIndice.y;
                 }
 
-                if(activeWin && z > 15) {
-                    activeWin.style.left = (x - 150) + 'px';
-                    activeWin.style.top = (y - 50) + 'px';
-                } else if(z < 10) activeWin = null; // Soltar al alejar mano
+                // Gesto 2: Click / Pinza (Medir distancia euclidiana entre punto 4 y punto 8)
+                const distanciaPinza = Math.hypot(puntoIndice.x - puntoPulgar.x, puntoIndice.y - puntoPulgar.y);
+                if (distanciaPinza < 0.04) { // Detección de contacto cercano
+                    const cardActiva = document.querySelectorAll('.resultado-card')[indiceSeleccionado];
+                    if (cardActiva && !cardActiva.style.borderColor) {
+                        cardActiva.style.borderColor = "#22c55e"; // Feedback de Click Exitoso (Verde)
+                        responderVoz("Abriendo elemento seleccionado");
+                        setTimeout(() => cardActiva.style.borderColor = "", 1000);
+                    }
+                }
+            } else {
+                posicionYAnterior = null;
             }
         });
 
-        new Camera(document.getElementById('feed'), {
-            onFrame: async () => await hands.send({image: document.getElementById('feed')})
-        }).start();
+        // Función personalizada para pintar los puntos de referencia clave en el Canvas
+        function dibujarPuntosClave(landmarks) {
+            canvasCtx.fillStyle = '#00f2ff';
+            // Solo dibujamos los más importantes para optimizar rendimiento (Muñeca, Pulgar, Índice)
+            const indicesClave = [0, 4, 8]; 
+            indicesClave.forEach(i => {
+                const pt = landmarks[i];
+                const x = pt.x * canvasElement.width;
+                const y = pt.y * canvasElement.height;
+                canvasCtx.beginPath();
+                canvasCtx.arc(x, y, 6, 0, 2 * Math.PI);
+                canvasCtx.fill();
+            });
+        }
 
-        const rec = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-        rec.onresult = (e) => {
-            const cmd = e.results[0][0].transcript.toLowerCase();
-            if(cmd.includes('buscar')) window.open(`https://google.com/search?q=${cmd.split('buscar')[1]}`);
-        };
-        rec.start();
+        // Inicializar la cámara nativa del sistema
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({ image: videoElement });
+            },
+            width: 640,
+            height: 480
+        });
+        camera.start();
     </script>
 </body>
 </html>
