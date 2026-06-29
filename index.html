@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Holo-OS Interface</title>
+    <title>Holo-OS Pro Interface</title>
     <style>
         body { margin: 0; background: #050505; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
         #container { width: 100vw; height: 100vh; position: relative; }
@@ -10,23 +10,26 @@
         
         /* Sidebar Interactivo */
         #sidebar { 
-            position: absolute; left: 0; top: 0; width: 200px; height: 100%; 
-            background: rgba(20, 20, 20, 0.8); border-right: 1px solid #00d2ff;
-            display: flex; flex-direction: column; gap: 10px; padding: 10px; z-index: 50;
-            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: absolute; left: 0; top: 0; width: 220px; height: 100%; 
+            background: rgba(20, 20, 20, 0.85); border-right: 2px solid #00d2ff;
+            display: flex; flex-direction: column; gap: 15px; padding: 20px; z-index: 50;
+            overflow-y: auto; transition: transform 0.4s ease;
         }
         
         /* Ventanas */
         .window { 
-            position: absolute; width: 350px; background: rgba(0, 30, 60, 0.9); 
+            position: absolute; width: 350px; background: rgba(0, 30, 60, 0.95); 
             border: 1px solid #00d2ff; border-radius: 15px; padding: 15px; z-index: 20;
-            transition: all 0.4s ease; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); animation: emerge 0.4s ease-out;
         }
-        .window.minimized { position: relative; width: 100%; height: 60px; transform: scale(1); }
+        @keyframes emerge { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
         
-        /* Navegador y Sugerencias */
-        .suggestions { background: white; color: black; padding: 5px; display: none; font-size: 12px; }
-        .mic-active { box-shadow: 0 0 20px #ff3b30; border: 2px solid #ff3b30; }
+        .minimized { position: relative !important; width: 100% !important; height: 60px !important; background: rgba(0,50,100,0.5); font-size: 12px; }
+        
+        /* Buscador y Sugerencias */
+        .suggestions { background: white; color: black; padding: 8px; display: none; border-radius: 5px; margin-top: 5px; }
+        .mic-active { background: #ff3b30 !important; box-shadow: 0 0 15px #ff3b30; }
     </style>
 </head>
 <body>
@@ -35,12 +38,12 @@
     <video id="video" autoplay playsinline></video>
     <div id="sidebar"><h3>Segundo Plano</h3></div>
     
-    <div class="window" id="mainWin" style="top: 20%; left: 300px;">
+    <div class="window" id="win1" style="top: 20%; left: 300px;">
         <div class="window-header">Navegador IA</div>
         <input type="text" id="searchBar" placeholder="¿Qué buscamos hoy?" style="width: 100%;">
-        <div id="sugs" class="suggestions">Recetas | Noticias | Clima</div>
-        <button id="micBtn" class="mic-btn">🎤 Activar Voz</button>
-        <iframe src="https://www.google.com/webhp?igu=1" style="width:100%; height:200px; border:none;"></iframe>
+        <div id="sugs" class="suggestions">Sugerencias: Tiempo, Noticias, IA, Programación</div>
+        <button id="micBtn" style="width: 100%; margin-top:10px;">🎤 Activar Voz</button>
+        <iframe src="https://es.wikipedia.org/wiki/Portal:Portada" style="width:100%; height:200px; border:none; margin-top:10px;"></iframe>
     </div>
 </div>
 
@@ -51,23 +54,24 @@
     const sidebar = document.getElementById('sidebar');
     const searchBar = document.getElementById('searchBar');
     const sugs = document.getElementById('sugs');
+    const micBtn = document.getElementById('micBtn');
 
-    // Sugerencias interactivas
-    searchBar.onfocus = () => sugs.style.display = 'block';
-    searchBar.onblur = () => setTimeout(() => sugs.style.display = 'none', 200);
-
-    // Sistema de Voz
+    // Lógica de Voz
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-    recognition.onstart = () => document.getElementById('micBtn').classList.add('mic-active');
+    recognition.lang = 'es-ES';
+    recognition.onstart = () => micBtn.classList.add('mic-active');
+    recognition.onend = () => micBtn.classList.remove('mic-active');
     recognition.onresult = (e) => {
         const query = e.results[0][0].transcript;
-        searchBar.value = query;
         window.open(`https://www.google.com/search?q=${query}`, '_blank');
-        document.getElementById('micBtn').classList.remove('mic-active');
     };
-    document.getElementById('micBtn').onclick = () => recognition.start();
+    micBtn.onclick = () => recognition.start();
 
-    // Lógica de manos (simplificada para rendimiento)
+    // Sugerencias
+    searchBar.onfocus = () => sugs.style.display = 'block';
+    searchBar.onblur = () => setTimeout(() => sugs.style.display = 'none', 300);
+
+    // Sistema de manos (Arrastrar y Minimizar)
     const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
     hands.setOptions({ maxNumHands: 1, minDetectionConfidence: 0.7 });
 
@@ -76,19 +80,26 @@
             const index = res.multiHandLandmarks[0][8];
             const thumb = res.multiHandLandmarks[0][4];
             const dist = Math.hypot(index.x - thumb.x, index.y - thumb.y);
+            const px = (1 - index.x) * window.innerWidth;
+            const py = index.y * window.innerHeight;
 
-            // Mover ventana principal si se hace pinza
+            // Arrastrar ventanas
             if (dist < 0.05) {
-                const win = document.getElementById('mainWin');
-                win.style.left = (1 - index.x) * window.innerWidth + 'px';
-                win.style.top = index.y * window.innerHeight + 'px';
+                const windows = document.querySelectorAll('.window');
+                windows.forEach(win => {
+                    const rect = win.getBoundingClientRect();
+                    if (px > rect.left && px < rect.right && py > rect.top && py < rect.top + 50) {
+                        win.style.left = px + 'px'; win.style.top = py + 'px';
+                        // Auto-activar voz al sujetar ventana
+                        if (!micBtn.classList.contains('mic-active')) recognition.start();
+                    }
+                });
             }
-            
-            // Gestos laterales para sidebar
-            if (index.x < 0.1 && dist > 0.15) {
-                sidebar.style.transform = 'translateX(0)';
-            } else if (index.x > 0.9) {
-                sidebar.style.transform = 'translateX(-100%)';
+            // Minimizar a sidebar
+            else if (index.x > 0.8) {
+                const win = document.getElementById('win1');
+                win.classList.add('minimized');
+                sidebar.appendChild(win);
             }
         }
     });
