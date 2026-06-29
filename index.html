@@ -2,15 +2,49 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Tracking de Manos con MediaPipe</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tracking de Dos Manos - Pantalla Completa</title>
     <style>
-        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #222; }
-        #video, #output { position: absolute; }
+        /* Estilos para pantalla completa y diseño limpio */
+        body, html { 
+            margin: 0; 
+            padding: 0; 
+            width: 100%; 
+            height: 100%; 
+            overflow: hidden; /* Evita barras de desplazamiento */
+            background: #000; /* Fondo negro mientras carga */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #video, #output { 
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            /* 'object-fit: cover' asegura pantalla completa sin deformar la imagen, cortando los bordes si es necesario */
+            object-fit: cover; 
+        }
+
+        /* Asegura que el canvas esté SIEMPRE encima del video */
+        #output {
+            z-index: 10;
+        }
     </style>
 </head>
 <body>
-    <video id="video" width="640" height="480" autoplay playsinline></video>
-    <canvas id="output" width="640" height="480"></canvas>
+    <div id="container">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="output"></canvas>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
@@ -21,26 +55,68 @@
         const canvasElement = document.getElementById('output');
         const canvasCtx = canvasElement.getContext('2d');
 
-        // Configuración de MediaPipe
-        const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.5 });
-        
-        // Función que dibuja los puntos en el canvas
-        hands.onResults((results) => {
-            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-            if (results.multiHandLandmarks) {
-                for (const landmarks of results.multiHandLandmarks) {
-                    drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00FF00', lineWidth: 5});
-                    drawLandmarks(canvasCtx, landmarks, {color: '#FF0000', lineWidth: 2});
-                }
-            }
+        // Función para ajustar la resolución interna del canvas
+        // Esto es necesario para que los puntos se dibujen en la posición correcta en pantalla completa
+        function resizeCanvas() {
+            canvasElement.width = window.innerWidth;
+            canvasElement.height = window.innerHeight;
+        }
+
+        // Llamar a la función al cargar y cuando cambie el tamaño de la ventana
+        window.addEventListener('load', resizeCanvas);
+        window.addEventListener('resize', resizeCanvas);
+
+        // Configuración de MediaPipe Hands
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
         });
 
-        // Conectar la cámara
-        const camera = new Camera(videoElement, {
-            onFrame: async () => { await hands.send({image: videoElement}); },
-            width: 640, height: 480
+        // --- CAMBIO CLAVE AQUÍ ---
+        hands.setOptions({ 
+            maxNumHands: 2,           // AHORA DETECTA 2 MANOS
+            modelComplexity: 1,       // 1 para balance entre velocidad y precisión
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
         });
+        
+        // Función que dibuja los resultados (puntos y conexiones) en el canvas
+        hands.onResults((results) => {
+            // 1. Limpiar el canvas de la iteración anterior
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            
+            // 2. Si se detectan manos, dibujarlas
+            if (results.multiHandLandmarks) {
+                // El bucle ya estaba preparado para múltiples manos
+                for (const landmarks of results.multiHandLandmarks) {
+                    // Dibujar las líneas de conexión (verdes)
+                    drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {
+                        color: '#00FF00', 
+                        lineWidth: 4
+                    });
+                    // Dibujar los puntos clave de los dedos (rojos)
+                    drawLandmarks(canvasCtx, landmarks, {
+                        color: '#FF0000', 
+                        lineWidth: 1, 
+                        radius: 3
+                    });
+                }
+            }
+            canvasCtx.restore();
+        });
+
+        // Configurar y conectar la cámara
+        const camera = new Camera(videoElement, {
+            onFrame: async () => { 
+                // Enviar cada frame del video a MediaPipe para procesar
+                await hands.send({image: videoElement}); 
+            },
+            // Especificar una resolución base (MediaPipe la ajustará)
+            width: 1280, 
+            height: 720
+        });
+        
+        // Iniciar la cámara
         camera.start();
     </script>
 </body>
