@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Espacio Virtual - Control de Gestos Avanzado</title>
+    <title>Espacio Virtual - OS Holográfico</title>
     <style>
         body, html { 
             margin: 0; padding: 0; width: 100%; height: 100%; 
@@ -12,15 +12,13 @@
 
         #container { position: relative; width: 100vw; height: 100vh; }
         
-        /* Espejo de cámara y lienzo */
         #video, #output { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            object-fit: cover; 
-            transform: scaleX(-1); 
+            object-fit: cover; transform: scaleX(-1); 
         }
         #output { z-index: 10; pointer-events: none; }
 
-        /* --- MENÚ DE CONTROL FLOTANTE (Derecha) --- */
+        /* Controles laterales */
         #control-panel {
             position: absolute; right: 40px; top: 50%; transform: translateY(-50%);
             display: flex; flex-direction: column; gap: 24px; z-index: 30;
@@ -30,7 +28,7 @@
 
         .btn {
             width: 70px; height: 70px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.3);
-            background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(10px);
             color: white; font-size: 32px; cursor: pointer; display: flex; justify-content: center; align-items: center;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); transition: all 0.2s ease; user-select: none;
         }
@@ -38,59 +36,72 @@
         .btn-add { border-color: #00FF00; color: #00FF00; }
         .btn-remove { border-color: #FF3B30; color: #FF3B30; }
 
-        /* --- CONTENEDOR LATERAL (Segundo plano) --- */
         #sidebar-background {
             position: absolute; left: 0; top: 0; width: 180px; height: 100%;
-            background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(20px);
             border-right: 1px solid rgba(0, 210, 255, 0.2); z-index: 15;
             transform: translateX(-100%); transition: transform 0.5s ease;
-            display: flex; flex-direction: column; gap: 16px; padding: 20px 10px; box-sizing: border-box;
-            overflow-y: auto;
+            display: flex; flex-direction: column; gap: 16px; padding: 20px 10px; box-sizing: border-box; overflow-y: auto;
         }
         #sidebar-background.active { transform: translateX(0); }
 
-        /* --- ESTILO DE LAS VENTANAS FLOTANTES --- */
+        /* Ventanas */
         .window {
-            position: absolute; width: 280px;
-            background: rgba(0, 150, 255, 0.08); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
-            border: 1px solid rgba(0, 210, 255, 0.25); border-radius: 16px; color: white;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5); z-index: 20; overflow: hidden;
-            transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), width 0.4s ease, height 0.4s ease, border-color 0.3s, box-shadow 0.3s; 
+            position: absolute; width: 320px;
+            background: rgba(0, 20, 40, 0.6); backdrop-filter: blur(15px);
+            border: 1px solid rgba(0, 210, 255, 0.4); border-radius: 12px; color: white;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 20; overflow: hidden;
+            transition: border-color 0.3s, box-shadow 0.3s; 
             user-select: none;
         }
 
         .window.holding {
-            border-color: #00FF00; 
-            transform: scale(1.15) !important; 
-            box-shadow: 0 0 40px rgba(0, 255, 0, 0.4); 
-            z-index: 25;
-            transition: transform 0.08s linear;
+            border-color: #00FF00; z-index: 25;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.4);
         }
 
-        /* --- MODO ENFOQUE (PANTALLA COMPLETA) --- */
         .window.maximized {
             top: 5% !important; left: 200px !important;
             width: calc(100vw - 250px) !important; height: 90vh !important;
             z-index: 28; border-color: #00D2FF;
-            box-shadow: 0 0 50px rgba(0, 210, 255, 0.5);
-            transform: scale(1) !important;
         }
 
-        /* --- MODO MINIMIZADO EN SEGUNDO PLANO --- */
         .window.minimized {
             position: relative !important; top: 0 !important; left: 0 !important;
-            width: 160px !important; height: auto !important; transform: scale(1) !important;
-            z-index: 18; border-color: rgba(255, 255, 255, 0.1);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            width: 160px !important; height: auto !important; z-index: 18;
         }
         .window.minimized .window-content { display: none; }
 
         .window-header {
-            padding: 12px; background: rgba(0, 210, 255, 0.15);
-            font-weight: 600; font-size: 14px; border-bottom: 1px solid rgba(0, 210, 255, 0.25); text-align: center;
-            text-shadow: 0 0 8px rgba(0, 210, 255, 0.6);
+            padding: 10px; background: rgba(0, 210, 255, 0.2);
+            font-weight: bold; font-size: 14px; text-align: center; border-bottom: 1px solid rgba(0, 210, 255, 0.3);
         }
-        .window-content { padding: 18px; font-size: 14px; line-height: 1.5; color: rgba(255, 255, 255, 0.85); }
+        
+        .window-content { padding: 15px; font-size: 14px; display: flex; flex-direction: column; gap: 10px; }
+
+        /* UI Navegador */
+        .search-bar {
+            display: flex; width: 100%; gap: 5px;
+        }
+        .search-bar input {
+            flex-grow: 1; padding: 8px; border-radius: 6px; border: none; outline: none;
+            background: rgba(255, 255, 255, 0.9); color: #000; font-weight: bold;
+        }
+        .mic-btn {
+            background: #ff3b30; border: none; color: white; border-radius: 6px; padding: 0 15px;
+            cursor: pointer; font-weight: bold; transition: 0.2s;
+        }
+        .mic-btn.listening { background: #00FF00; box-shadow: 0 0 15px #00FF00; }
+        .browser-frame {
+            width: 100%; height: 200px; background: #fff; border: none; border-radius: 6px;
+        }
+        .window.maximized .browser-frame { height: calc(100% - 60px); }
+
+        /* Notificador de sistema */
+        #status-hud {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            color: #00D2FF; font-weight: bold; z-index: 40; font-size: 18px; text-shadow: 0 0 10px #00D2FF;
+        }
     </style>
 </head>
 <body>
@@ -98,6 +109,7 @@
         <video id="video" autoplay playsinline></video>
         <canvas id="output"></canvas>
 
+        <div id="status-hud">SISTEMA INICIADO</div>
         <div id="sidebar-background"></div>
 
         <div id="control-panel">
@@ -105,12 +117,14 @@
             <button class="btn btn-remove" id="removeBtn">−</button>
         </div>
 
-        <div class="window" style="top: 25%; left: 25%;">
-            <div class="window-header">Core HUD v2.0</div>
+        <div class="window browser-window" style="top: 20%; left: 20%; width: 400px;" id="browserWindow">
+            <div class="window-header">Navegador IA</div>
             <div class="window-content">
-                <p><b>Nuevos comandos:</b><br>
-                1. Haz la pinza y abre el pulgar e índice rápidamente para mandar a segundo plano.<br>
-                2. Sostén 3 dedos arriba (Pulgar, Índice y Anular) sobre mí para expandir a pantalla completa.</p>
+                <div class="search-bar">
+                    <input type="text" id="searchInput" placeholder="Buscar en Google...">
+                    <button class="mic-btn" id="micBtn">🎤</button>
+                </div>
+                <iframe class="browser-frame" id="browserFrame" src="https://es.wikipedia.org/wiki/Portal:Portada"></iframe>
             </div>
         </div>
     </div>
@@ -123,18 +137,40 @@
         const videoElement = document.getElementById('video');
         const canvasElement = document.getElementById('output');
         const canvasCtx = canvasElement.getContext('2d');
-        const sidebar = document.getElementById('sidebar-background');
-        const ctrlPanel = document.getElementById('control-panel');
+        const hud = document.getElementById('status-hud');
 
         let activeHoldingWindow = null;
         let maximizedWindow = null;
         let offsetX = 0; let offsetY = 0;
-        let windowCounter = 1;
-        
         let buttonCooldown = false; 
-        let gestureCooldown = false; 
+        
+        // Variables para el Swipe
+        let prevPointerX = null;
 
-        const originalPositions = new Map();
+        // Configuración de Voz
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'es-ES';
+            recognition.continuous = false;
+            recognition.interimResults = false;
+
+            recognition.onresult = (event) => {
+                const query = event.results[0][0].transcript;
+                document.getElementById('searchInput').value = query;
+                hud.innerText = `Buscando: "${query}"`;
+                realizarBusqueda(query);
+            };
+            recognition.onend = () => document.getElementById('micBtn').classList.remove('listening');
+        }
+
+        function realizarBusqueda(query) {
+            // Abre Google en una pestaña nueva
+            window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
+        }
+
+        function setStatus(text) { hud.innerText = text; setTimeout(() => hud.innerText = "", 2000); }
 
         function resizeCanvas() {
             canvasElement.width = window.innerWidth;
@@ -143,218 +179,104 @@
         window.addEventListener('load', resizeCanvas);
         window.addEventListener('resize', resizeCanvas);
 
-        function enviarASegundoPlano(win) {
-            if (maximizedWindow) return;
-            sidebar.classList.add('active');
-            originalPositions.set(win, { top: win.style.top, left: win.style.left });
-            win.classList.remove('holding');
-            win.classList.add('minimized');
-            sidebar.appendChild(win);
-            if(activeHoldingWindow === win) activeHoldingWindow = null;
-        }
-
-        function crearVentana() {
-            if (maximizedWindow) return; 
-            windowCounter++;
-            const newWin = document.createElement('div');
-            newWin.className = 'window';
-            const randomTop = Math.floor(Math.random() * 40) + 20;
-            const randomLeft = Math.floor(Math.random() * 30) + 20;
-            
-            newWin.style.top = `${randomTop}%`;
-            newWin.style.left = `${randomLeft}%`;
-            newWin.innerHTML = `
-                <div class="window-header">Widget #${windowCounter}</div>
-                <div class="window-content"><p>Módulo flotante adicional desplegado en el entorno holográfico.</p></div>
-            `;
-            document.getElementById('container').appendChild(newWin);
-        }
-
-        function eliminarVentana() {
-            if (maximizedWindow) return;
-            const windows = document.querySelectorAll('.window');
-            if (windows.length > 1) {
-                windows[windows.length - 1].remove();
-            }
-        }
-
-        document.getElementById('addBtn').addEventListener('click', crearVentana);
-        document.getElementById('removeBtn').addEventListener('click', eliminarVentana);
-
         const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
-        hands.setOptions({ 
-            maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 
-        });
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
         
         hands.onResults((results) => {
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
             
-            let handDetectedThisFrame = false;
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#ffffff', lineWidth: 1.5});
+                drawLandmarks(canvasCtx, landmarks, {color: '#00d2ff', lineWidth: 1, radius: 2.5});
 
-            if (results.multiHandLandmarks) {
-                for (const landmarks of results.multiHandLandmarks) {
-                    handDetectedThisFrame = true;
+                const thumb = landmarks[4];
+                const index = landmarks[8];
+                const middle = landmarks[12];
+                const ring = landmarks[16];
+                const pinky = landmarks[20];
 
-                    drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#ffffff', lineWidth: 1.5});
-                    drawLandmarks(canvasCtx, landmarks, {color: '#00d2ff', lineWidth: 1, radius: 2.5});
+                // Puntero
+                const pointerX = window.innerWidth - (((thumb.x + index.x) / 2) * window.innerWidth);
+                const pointerY = ((thumb.y + index.y) / 2) * window.innerHeight;
 
-                    // Puntos estructurales clave
-                    const thumb = landmarks[4];
-                    const index = landmarks[8];
-                    const ring = landmarks[16];   // Dedo Anular
-                    const pinky = landmarks[20];
+                const distanciaPinza = Math.sqrt(Math.pow((index.x - thumb.x)*window.innerWidth, 2) + Math.pow((index.y - thumb.y)*window.innerHeight, 2));
+                
+                // GESTO: L-Shape (Índice y Pulgar extendidos, los demás cerrados) para SWIPE
+                const dedoMedioCerrado = middle.y > landmarks[9].y; // Medio doblado hacia abajo
+                const dedoAnularCerrado = ring.y > landmarks[13].y;
+                const L_Shape = distanciaPinza > 100 && dedoMedioCerrado && dedoAnularCerrado;
 
-                    // Coordenadas en espejo físico perfecto
-                    const pointerX = window.innerWidth - (((thumb.x + index.x) / 2) * window.innerWidth);
-                    const pointerY = ((thumb.y + index.y) / 2) * window.innerHeight;
+                // Render Puntero
+                canvasCtx.beginPath();
+                canvasCtx.arc(pointerX, pointerY, 8, 0, 2 * Math.PI);
+                canvasCtx.fillStyle = L_Shape ? '#FF00FF' : (distanciaPinza < 45 ? '#00FF00' : 'rgba(0, 210, 255, 0.5)');
+                canvasCtx.fill();
 
-                    const indexX = window.innerWidth - (index.x * window.innerWidth);
-                    const indexY = index.y * window.innerHeight;
-                    const thumbX = window.innerWidth - (thumb.x * window.innerWidth);
-                    const thumbY = thumb.y * window.innerHeight;
-                    const ringX = window.innerWidth - (ring.x * window.innerWidth);
-                    const ringY = ring.y * window.innerHeight;
-                    const pinkyX = window.innerWidth - (pinky.x * window.innerWidth);
-                    const pinkyY = pinky.y * window.innerHeight;
-
-                    // Distancias críticas para análisis de gestos
-                    const distanciaPinza = Math.sqrt(Math.pow(indexX - thumbX, 2) + Math.pow(indexY - thumbY, 2));
-                    const distanciaAnularPulgar = Math.sqrt(Math.pow(ringX - thumbX, 2) + Math.pow(ringY - thumbY, 2));
-                    const distanciaManoAbierta = Math.sqrt(Math.pow(pinkyX - thumbX, 2) + Math.pow(pinkyY - thumbY, 2));
-
-                    // Variable de estado para evaluar 3 Dedos Arriba (Pulgar, Índice, Anular extendidos)
-                    const tresDedosArriba = (distanciaPinza > 90 && distanciaAnularPulgar > 90 && distanciaManoAbierta < 230);
-
-                    // HUD gráfico del puntero virtual
-                    canvasCtx.beginPath();
-                    canvasCtx.arc(pointerX, pointerY, 6, 0, 2 * Math.PI);
-                    if (tresDedosArriba) {
-                        canvasCtx.fillStyle = '#00D2FF'; // Azul: Modo Pantalla Completa listo
-                    } else if (distanciaPinza < 45) {
-                        canvasCtx.fillStyle = '#00FF00'; // Verde: Sujetando / Moviendo
-                    } else {
-                        canvasCtx.fillStyle = 'rgba(0, 210, 255, 0.5)';
-                    }
-                    canvasCtx.fill();
-
-
-                    // --- GESTO 1: TRES DEDOS LEVANTADOS (PANTALLA COMPLETA) ---
-                    if (tresDedosArriba && !activeHoldingWindow) {
-                        if (!gestureCooldown) {
-                            const windows = document.querySelectorAll('.window');
-                            
-                            for (let i = windows.length - 1; i >= 0; i--) {
-                                const win = windows[i];
-                                const rect = win.getBoundingClientRect();
-
-                                if (pointerX >= rect.left && pointerX <= rect.right && pointerY >= rect.top && pointerY <= rect.bottom) {
-                                    
-                                    gestureCooldown = true;
-                                    setTimeout(() => gestureCooldown = false, 1000); 
-
-                                    if (!maximizedWindow) {
-                                        maximizedWindow = win;
-                                        win.classList.add('maximized');
-                                        sidebar.classList.add('active');
-                                        ctrlPanel.classList.add('hidden');
-
-                                        windows.forEach(w => {
-                                            if (w !== maximizedWindow) {
-                                                originalPositions.set(w, { top: w.style.top, left: w.style.left });
-                                                w.classList.add('minimized');
-                                                sidebar.appendChild(w); 
-                                            }
-                                        });
-                                    } else if (maximizedWindow === win) {
-                                        win.classList.remove('maximized');
-                                        sidebar.classList.remove('active');
-                                        ctrlPanel.classList.remove('hidden');
-
-                                        windows.forEach(w => {
-                                            if (w !== maximizedWindow) {
-                                                w.classList.remove('minimized');
-                                                const pos = originalPositions.get(w);
-                                                if (pos) {
-                                                    w.style.top = pos.top;
-                                                    w.style.left = pos.left;
-                                                }
-                                                document.getElementById('container').appendChild(w);
-                                            }
-                                        });
-                                        maximizedWindow = null;
-                                        originalPositions.clear();
-                                    }
-                                    break;
-                                }
-                            }
+                // --- LÓGICA DE SWIPE (DESPLAZAMIENTO) ---
+                if (L_Shape && !activeHoldingWindow) {
+                    if (prevPointerX !== null) {
+                        const deltaX = pointerX - prevPointerX;
+                        // Mover ventanas si hay un movimiento lateral brusco
+                        if (Math.abs(deltaX) > 5) {
+                            document.querySelectorAll('.window:not(.minimized):not(.maximized)').forEach(win => {
+                                const currentLeft = parseFloat(win.style.left || 0);
+                                win.style.left = `${currentLeft + deltaX}px`;
+                            });
                         }
-                        continue;
+                    }
+                    prevPointerX = pointerX; 
+                } else {
+                    prevPointerX = null; // Reiniciar si pierde la forma de L
+                }
+
+                // --- LÓGICA DE PINZA (CLICK / DRAG) ---
+                if (distanciaPinza < 45 && !L_Shape) {
+                    
+                    // Click en Botón de Micrófono
+                    const micBtn = document.getElementById('micBtn');
+                    const rectMic = micBtn.getBoundingClientRect();
+                    if (pointerX >= rectMic.left && pointerX <= rectMic.right && pointerY >= rectMic.top && pointerY <= rectMic.bottom) {
+                        if (!buttonCooldown && recognition) {
+                            micBtn.classList.add('listening');
+                            recognition.start();
+                            buttonCooldown = true;
+                            setStatus("Escuchando...");
+                            setTimeout(() => buttonCooldown = false, 1500);
+                        }
                     }
 
-
-                    // --- GESTO 2: PINZA Y APERTURA DE DEDOS (MOVIMIENTO Y SEGUNDO PLANO) ---
-                    if (distanciaPinza < 45) {
-                        if (!maximizedWindow) {
-                            const addBtn = document.getElementById('addBtn');
-                            const removeBtn = document.getElementById('removeBtn');
-                            const rAdd = addBtn.getBoundingClientRect();
-                            const rRem = removeBtn.getBoundingClientRect();
-
-                            if (pointerX >= rAdd.left && pointerX <= rAdd.right && pointerY >= rAdd.top && pointerY <= rAdd.bottom) {
-                                addBtn.classList.add('pressed');
-                                if (!buttonCooldown) { crearVentana(); buttonCooldown = true; }
-                                continue;
+                    // Sujetar Ventanas
+                    if (!activeHoldingWindow) {
+                        const windows = document.querySelectorAll('.window:not(.minimized):not(.maximized)');
+                        for (let i = windows.length - 1; i >= 0; i--) {
+                            const win = windows[i];
+                            const rect = win.getBoundingClientRect();
+                            // Detectar si pincha el "Header" (parte superior) para arrastrar
+                            if (pointerX >= rect.left && pointerX <= rect.right && pointerY >= rect.top && pointerY <= rect.top + 40) {
+                                activeHoldingWindow = win;
+                                win.classList.add('holding'); 
+                                offsetX = pointerX - rect.left;
+                                offsetY = pointerY - rect.top;
+                                break;
                             }
-                            if (pointerX >= rRem.left && pointerX <= rRem.right && pointerY >= rRem.top && pointerY <= rRem.bottom) {
-                                removeBtn.classList.add('pressed');
-                                if (!buttonCooldown) { eliminarVentana(); buttonCooldown = true; }
-                                continue;
-                            }
-                        }
-
-                        if (!activeHoldingWindow) {
-                            const windows = document.querySelectorAll('.window:not(.minimized):not(.maximized)');
-                            for (let i = windows.length - 1; i >= 0; i--) {
-                                const win = windows[i];
-                                const rect = win.getBoundingClientRect();
-
-                                if (pointerX >= rect.left && pointerX <= rect.right && pointerY >= rect.top && pointerY <= rect.bottom) {
-                                    activeHoldingWindow = win;
-                                    win.classList.add('holding'); 
-                                    offsetX = pointerX - rect.left;
-                                    offsetY = pointerY - rect.top;
-                                    break;
-                                }
-                            }
-                        } else {
-                            activeHoldingWindow.style.left = `${pointerX - offsetX}px`;
-                            activeHoldingWindow.style.top = `${pointerY - offsetY}px`;
                         }
                     } else {
-                        // DETECCIÓN SEGUNDO PLANO: Si estaba sosteniendo una ventana y abre los dedos bruscamente (>120px)
-                        if (activeHoldingWindow && distanciaPinza > 120) {
-                            enviarASegundoPlano(activeHoldingWindow);
-                        }
-
-                        if (activeHoldingWindow) {
-                            activeHoldingWindow.classList.remove('holding'); 
-                            activeHoldingWindow = null;
-                        }
-                        document.getElementById('addBtn').classList.remove('pressed');
-                        document.getElementById('removeBtn').classList.remove('pressed');
-                        buttonCooldown = false;
+                        // Mover ventana retenida
+                        activeHoldingWindow.style.left = `${pointerX - offsetX}px`;
+                        activeHoldingWindow.style.top = `${pointerY - offsetY}px`;
+                    }
+                } else {
+                    if (activeHoldingWindow) {
+                        activeHoldingWindow.classList.remove('holding'); 
+                        activeHoldingWindow = null;
                     }
                 }
-            }
-
-            if (!handDetectedThisFrame) {
+            } else {
                 if (activeHoldingWindow) { activeHoldingWindow.classList.remove('holding'); activeHoldingWindow = null; }
-                document.getElementById('addBtn').classList.remove('pressed');
-                document.getElementById('removeBtn').classList.remove('pressed');
-                buttonCooldown = false;
+                prevPointerX = null;
             }
-
             canvasCtx.restore();
         });
 
