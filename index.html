@@ -2,115 +2,98 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Espacio Virtual - OS Holográfico</title>
+    <title>Holo-OS Interface</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: sans-serif; }
-        #container { position: relative; width: 100vw; height: 100vh; }
-        #video, #output { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-        #output { z-index: 10; pointer-events: none; }
-
-        /* Controles */
-        #control-panel { position: absolute; right: 40px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 20px; z-index: 30; }
-        .btn { width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,0.2); border: 1px solid white; color: white; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+        body { margin: 0; background: #050505; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+        #container { width: 100vw; height: 100vh; position: relative; }
+        #video { position: absolute; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); opacity: 0.3; }
         
-        /* Sidebar Izquierdo */
-        #sidebar { position: absolute; left: 0; top: 0; width: 160px; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); z-index: 15; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 15px; }
+        /* Sidebar Interactivo */
+        #sidebar { 
+            position: absolute; left: 0; top: 0; width: 200px; height: 100%; 
+            background: rgba(20, 20, 20, 0.8); border-right: 1px solid #00d2ff;
+            display: flex; flex-direction: column; gap: 10px; padding: 10px; z-index: 50;
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
         
         /* Ventanas */
-        .window { position: absolute; width: 300px; background: rgba(0,50,100,0.7); backdrop-filter: blur(10px); border: 1px solid #00d2ff; border-radius: 10px; color: white; z-index: 20; padding: 10px; }
-        .window.minimized { position: relative !important; width: 100% !important; height: 80px !important; background: rgba(0,100,200,0.3); }
-        .window-header { cursor: move; padding-bottom: 10px; font-weight: bold; border-bottom: 1px solid #00d2ff; }
-        .browser-frame { width: 100%; height: 200px; border: none; margin-top: 10px; }
-        .mic-btn { width: 100%; padding: 10px; background: #ff3b30; border: none; color: white; cursor: pointer; border-radius: 5px; }
+        .window { 
+            position: absolute; width: 350px; background: rgba(0, 30, 60, 0.9); 
+            border: 1px solid #00d2ff; border-radius: 15px; padding: 15px; z-index: 20;
+            transition: all 0.4s ease; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .window.minimized { position: relative; width: 100%; height: 60px; transform: scale(1); }
+        
+        /* Navegador y Sugerencias */
+        .suggestions { background: white; color: black; padding: 5px; display: none; font-size: 12px; }
+        .mic-active { box-shadow: 0 0 20px #ff3b30; border: 2px solid #ff3b30; }
     </style>
 </head>
 <body>
-    <div id="container">
-        <video id="video" autoplay playsinline></video>
-        <canvas id="output"></canvas>
-        <div id="sidebar"><h3>Minimizadas</h3></div>
-        <div id="control-panel">
-            <button class="btn" onclick="crearVentana()">+</button>
-            <button class="btn" onclick="eliminarVentana()">-</button>
-        </div>
-        
-        <div class="window" style="top: 20%; left: 30%;">
-            <div class="window-header">Navegador IA</div>
-            <input type="text" id="searchIn" placeholder="Buscar..." style="width:100%">
-            <button class="mic-btn" id="micBtn">🎤 Escuchar</button>
-            <iframe class="browser-frame" src="https://es.wikipedia.org/wiki/Portal:Portada"></iframe>
-        </div>
+
+<div id="container">
+    <video id="video" autoplay playsinline></video>
+    <div id="sidebar"><h3>Segundo Plano</h3></div>
+    
+    <div class="window" id="mainWin" style="top: 20%; left: 300px;">
+        <div class="window-header">Navegador IA</div>
+        <input type="text" id="searchBar" placeholder="¿Qué buscamos hoy?" style="width: 100%;">
+        <div id="sugs" class="suggestions">Recetas | Noticias | Clima</div>
+        <button id="micBtn" class="mic-btn">🎤 Activar Voz</button>
+        <iframe src="https://www.google.com/webhp?igu=1" style="width:100%; height:200px; border:none;"></iframe>
     </div>
+</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
-    <script>
-        const sidebar = document.getElementById('sidebar');
-        const micBtn = document.getElementById('micBtn');
-        let activeWin = null;
-        
-        // Voz
-        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-        recognition.lang = 'es-ES';
-        recognition.onresult = (e) => window.open(`https://www.google.com/search?q=${e.results[0][0].transcript}`);
-        micBtn.onclick = () => recognition.start();
+<script>
+    const sidebar = document.getElementById('sidebar');
+    const searchBar = document.getElementById('searchBar');
+    const sugs = document.getElementById('sugs');
 
-        function crearVentana() {
-            const win = document.createElement('div');
-            win.className = 'window';
-            win.style.top = '100px'; win.style.left = '300px';
-            win.innerHTML = '<div class="window-header">Nueva Ventana</div><div>Contenido del sistema</div>';
-            document.getElementById('container').appendChild(win);
-        }
+    // Sugerencias interactivas
+    searchBar.onfocus = () => sugs.style.display = 'block';
+    searchBar.onblur = () => setTimeout(() => sugs.style.display = 'none', 200);
 
-        function eliminarVentana() { const wins = document.querySelectorAll('.window'); if(wins.length > 1) wins[wins.length-1].remove(); }
+    // Sistema de Voz
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.onstart = () => document.getElementById('micBtn').classList.add('mic-active');
+    recognition.onresult = (e) => {
+        const query = e.results[0][0].transcript;
+        searchBar.value = query;
+        window.open(`https://www.google.com/search?q=${query}`, '_blank');
+        document.getElementById('micBtn').classList.remove('mic-active');
+    };
+    document.getElementById('micBtn').onclick = () => recognition.start();
 
-        const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
-        hands.setOptions({ maxNumHands: 1, minDetectionConfidence: 0.7 });
-        
-        hands.onResults((res) => {
-            const canvas = document.getElementById('output');
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            if (res.multiHandLandmarks?.length > 0) {
-                const landmarks = res.multiHandLandmarks[0];
-                const thumb = landmarks[4];
-                const index = landmarks[8];
-                const px = window.innerWidth - (index.x * window.innerWidth);
-                const py = index.y * window.innerHeight;
-                
-                const dist = Math.hypot((index.x - thumb.x)*window.innerWidth, (index.y - thumb.y)*window.innerHeight);
+    // Lógica de manos (simplificada para rendimiento)
+    const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
+    hands.setOptions({ maxNumHands: 1, minDetectionConfidence: 0.7 });
 
-                // Dibujar cursor
-                ctx.fillStyle = dist < 40 ? '#00FF00' : '#00D2FF';
-                ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI*2); ctx.fill();
+    hands.onResults((res) => {
+        if (res.multiHandLandmarks?.length > 0) {
+            const index = res.multiHandLandmarks[0][8];
+            const thumb = res.multiHandLandmarks[0][4];
+            const dist = Math.hypot(index.x - thumb.x, index.y - thumb.y);
 
-                // Lógica arrastrar / minimizar
-                if (dist < 40) {
-                    const wins = document.querySelectorAll('.window');
-                    wins.forEach(w => {
-                        const rect = w.getBoundingClientRect();
-                        if (px > rect.left && px < rect.right && py > rect.top && py < rect.bottom) {
-                            if (!activeWin) activeWin = w;
-                            activeWin.style.left = (px - 50) + 'px';
-                            activeWin.style.top = (py - 20) + 'px';
-                        }
-                    });
-                } else if (activeWin && dist > 120) {
-                    activeWin.classList.add('minimized');
-                    sidebar.appendChild(activeWin);
-                    activeWin = null;
-                } else {
-                    activeWin = null;
-                }
+            // Mover ventana principal si se hace pinza
+            if (dist < 0.05) {
+                const win = document.getElementById('mainWin');
+                win.style.left = (1 - index.x) * window.innerWidth + 'px';
+                win.style.top = index.y * window.innerHeight + 'px';
             }
-        });
+            
+            // Gestos laterales para sidebar
+            if (index.x < 0.1 && dist > 0.15) {
+                sidebar.style.transform = 'translateX(0)';
+            } else if (index.x > 0.9) {
+                sidebar.style.transform = 'translateX(-100%)';
+            }
+        }
+    });
 
-        new Camera(document.getElementById('video'), { onFrame: async () => await hands.send({image: document.getElementById('video')}) }).start();
-    </script>
+    new Camera(document.getElementById('video'), { onFrame: async () => await hands.send({image: document.getElementById('video')}) }).start();
+</script>
 </body>
 </html>
