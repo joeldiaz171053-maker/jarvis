@@ -3,261 +3,364 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Holo-OS Mirror Workspace</title>
+    <title>Nexus OS - Entorno Espacial</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', -apple-system, sans-serif; }
-        #container { width: 100vw; height: 100vh; position: relative; user-select: none; }
-        
-        /* Video de procesamiento (oculto) y Canvas con Efecto Espejo Real */
-        #video { position: absolute; width: 100%; height: 100%; object-fit: cover; display: none; }
-        #output { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            object-fit: cover; z-index: 10; pointer-events: none;
-            transform: scaleX(-1); /* Invierte la cámara horizontalmente */
+        :root {
+            --primary: #00f0ff;
+            --secondary: #0055ff;
+            --danger: #ff2a2a;
+            --glass-bg: rgba(10, 15, 30, 0.6);
+            --glass-border: rgba(0, 240, 255, 0.3);
+            --text-main: #e0ffff;
         }
-        
-        /* --- PANEL DE CONTROL DERECHO --- */
-        #control-panel { position: absolute; right: 30px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 15px; z-index: 100; }
-        .btn { width: 55px; height: 55px; border-radius: 50%; background: rgba(10, 20, 40, 0.8); border: 2px solid #00d2ff; color: #00d2ff; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 22px; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.5); transition: all 0.2s; }
-        .btn:hover { background: #00d2ff; color: black; box-shadow: 0 0 15px #00d2ff; }
-        
-        /* --- VISUALIZADOR DE TAREAS (ESTILO MOBILE) --- */
-        #task-switcher { 
-            position: absolute; bottom: -250px; left: 50%; transform: translateX(-50%); width: 70%; height: 180px; 
-            background: rgba(10, 20, 40, 0.95); border: 2px solid #00d2ff; border-radius: 20px 20px 0 0; backdrop-filter: blur(15px);
-            display: flex; gap: 20px; padding: 20px; z-index: 90; transition: bottom 0.4s cubic-bezier(0.1, 0.8, 0.2, 1);
-            overflow-x: auto; align-items: center; box-sizing: border-box;
-        }
-        #task-switcher.active { bottom: 0; }
-        .clear-all-btn { position: absolute; right: 20px; top: 10px; background: #ff3b30; color: white; border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11px; }
 
-        /* --- VENTANAS DEL ENTORNO --- */
-        .window { 
-            position: absolute; width: 460px; height: 420px; background: rgba(10, 15, 30, 0.85); 
-            border: 2px solid #00d2ff; border-radius: 14px; padding: 0; z-index: 40;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.7); backdrop-filter: blur(10px);
-            resize: both; overflow: auto; display: flex; flex-direction: column;
-            animation: emerge 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1);
-        }
-        @keyframes emerge { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+        body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background: #02050a; font-family: 'Rajdhani', sans-serif; color: var(--text-main); user-select: none; }
         
-        /* Miniaturas dentro del Task Switcher */
-        .window.minimized { 
-            position: relative !important; top: 0 !important; left: 0 !important; width: 140px !important; height: 110px !important; 
-            flex-shrink: 0; resize: none; overflow: hidden; cursor: pointer; border-color: rgba(0,210,255,0.4);
-        }
-        .window.minimized .window-content, .window.minimized .nav-bar { display: none !important; }
-
-        .window-header { background: rgba(0,210,255,0.15); padding: 12px; font-weight: bold; border-bottom: 1px solid rgba(0, 210, 255, 0.3); display: flex; justify-content: space-between; align-items: center; color: #00d2ff; }
-        .win-close { cursor: pointer; color: #ff3b30; font-weight: bold; font-size: 16px; }
-
-        /* --- INTERFAZ DEL NAVEGADOR --- */
-        .nav-bar { display: flex; gap: 8px; padding: 8px; background: rgba(5, 15, 30, 0.9); border-bottom: 1px solid rgba(0, 210, 255, 0.2); align-items: center; }
-        .nav-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(0,210,255,0.3); color: white; border-radius: 4px; padding: 5px 10px; cursor: pointer; font-size: 12px; }
-        .nav-btn:hover { background: #00d2ff; color: #000; }
-        .address-bar { flex-grow: 1; padding: 6px 12px; border: 1px solid rgba(0,210,255,0.4); background: rgba(255,255,255,0.95); color: #000; border-radius: 6px; font-size: 13px; font-weight: 600; outline: none; }
+        /* Capas Base */
+        #camera-feed { position: absolute; width: 100%; height: 100%; object-fit: cover; opacity: 0.4; transform: scaleX(-1); z-index: 1; display: none; }
+        #ar-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; transform: scaleX(-1); }
+        #environment-bg { position: absolute; width: 100%; height: 100%; background: radial-gradient(circle at center, transparent 0%, #02050a 100%); z-index: 2; pointer-events: none; }
         
-        .window-content { flex-grow: 1; display: flex; flex-direction: column; padding: 0; margin: 0; background: white; }
-        .browser-frame { width: 100%; height: 100%; border: none; background: white; }
-
-        /* --- CURSOR PERSONALIZADO (Z-INDEX SUPERIOR) --- */
-        #custom-cursor {
-            position: absolute; width: 45px; height: 45px; z-index: 2000;
-            pointer-events: none; transform: translate(-50%, -50%);
-            font-size: 35px; display: none; line-height: 1;
-            text-shadow: 0 0 10px rgba(0, 210, 255, 0.8);
+        /* Grid Holográfico de Fondo */
+        .cyber-grid {
+            position: absolute; width: 200%; height: 200%; top: -50%; left: -50%;
+            background-image: linear-gradient(var(--glass-border) 1px, transparent 1px), linear-gradient(90deg, var(--glass-border) 1px, transparent 1px);
+            background-size: 50px 50px; transform: perspective(500px) rotateX(60deg);
+            animation: gridMove 20s linear infinite; z-index: 3; opacity: 0.15; pointer-events: none;
         }
+        @keyframes gridMove { 0% { transform: perspective(500px) rotateX(60deg) translateY(0); } 100% { transform: perspective(500px) rotateX(60deg) translateY(50px); } }
+
+        /* HUD - Heads Up Display */
+        #hud { position: absolute; top: 20px; left: 20px; z-index: 100; pointer-events: none; }
+        .hud-element { background: var(--glass-bg); border-left: 3px solid var(--primary); padding: 10px 15px; margin-bottom: 10px; backdrop-filter: blur(5px); font-size: 14px; letter-spacing: 1px; text-transform: uppercase; }
+        .hud-value { color: var(--primary); font-weight: bold; font-size: 18px; }
+
+        /* Contenedor del Sistema Operativo */
+        #os-workspace { position: absolute; width: 100%; height: 100%; z-index: 20; }
+
+        /* Estructura de Ventanas (Apps) */
+        .nexus-window {
+            position: absolute; background: var(--glass-bg); border: 1px solid var(--glass-border);
+            border-radius: 12px; backdrop-filter: blur(12px); box-shadow: 0 15px 35px rgba(0,0,0,0.5), inset 0 0 20px rgba(0,240,255,0.05);
+            display: flex; flex-direction: column; overflow: hidden; transition: box-shadow 0.3s;
+            animation: bootUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .nexus-window.active { border-color: var(--primary); box-shadow: 0 0 30px rgba(0, 240, 255, 0.2); }
+        @keyframes bootUp { 0% { opacity: 0; transform: scale(0.8) translateY(30px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+
+        .window-header {
+            display: flex; justify-content: space-between; align-items: center; padding: 10px 15px;
+            background: linear-gradient(90deg, rgba(0,240,255,0.1) 0%, transparent 100%);
+            border-bottom: 1px solid var(--glass-border); cursor: grab;
+        }
+        .window-title { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 16px; letter-spacing: 1px; }
+        .window-controls { display: flex; gap: 10px; }
+        .win-btn { width: 16px; height: 16px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .btn-close { background: var(--danger); opacity: 0.8; }
+        .btn-min { background: #ffaa00; opacity: 0.8; }
+        
+        .window-content { flex: 1; padding: 15px; overflow-y: auto; position: relative; }
+        
+        /* Elementos Internos de Apps */
+        .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .data-card { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; text-align: center; }
+        .data-card h4 { margin: 0 0 10px 0; color: #aaa; font-size: 12px; text-transform: uppercase; }
+        .data-card .value { font-size: 24px; color: var(--primary); font-weight: bold; }
+        
+        iframe { width: 100%; height: 100%; border: none; border-radius: 8px; background: white; }
+
+        /* Cursor Holográfico */
+        #ar-cursor {
+            position: absolute; width: 40px; height: 40px; border-radius: 50%;
+            border: 2px solid var(--primary); z-index: 9999; pointer-events: none;
+            transform: translate(-50%, -50%); transition: width 0.1s, height 0.1s, background 0.1s;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .cursor-dot { width: 8px; height: 8px; background: var(--primary); border-radius: 50%; box-shadow: 0 0 10px var(--primary); }
+        #ar-cursor.grabbing { width: 30px; height: 30px; background: rgba(0, 240, 255, 0.3); border-width: 4px; }
+
+        /* Taskbar Inferior */
+        #dock {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 20px;
+            padding: 10px 20px; display: flex; gap: 20px; z-index: 100; backdrop-filter: blur(10px);
+        }
+        .dock-icon { width: 50px; height: 50px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: center; align-items: center; cursor: pointer; color: var(--primary); transition: 0.3s; }
+        .dock-icon:hover { transform: translateY(-10px) scale(1.1); background: rgba(0,240,255,0.2); box-shadow: 0 10px 20px rgba(0,240,255,0.3); }
+
     </style>
 </head>
 <body>
 
-<div id="container">
-    <video id="video" autoplay playsinline></video>
-    <canvas id="output"></canvas>
-    
-    <div id="custom-cursor">✋</div>
-    
-    <div id="task-switcher">
-        <button class="clear-all-btn" onclick="borrarTodasLasVentanas()">🗑️ Borrar Todo</button>
+    <video id="camera-feed" autoplay playsinline></video>
+    <div class="cyber-grid"></div>
+    <div id="environment-bg"></div>
+    <canvas id="ar-canvas"></canvas>
+
+    <div id="hud">
+        <div class="hud-element">System Status: <span class="hud-value">ONLINE</span></div>
+        <div class="hud-element">Hand Tracking: <span class="hud-value" id="track-status">SEARCHING</span></div>
+        <div class="hud-element">Active Threads: <span class="hud-value" id="thread-count">0</span></div>
     </div>
-    
-    <div id="control-panel">
-        <button class="btn" onclick="crearVentana()">+</button>
-        <button class="btn" onclick="eliminarVentanaTop()">-</button>
-        <button class="btn" onclick="toggleTaskSwitcher()">📋</button>
+
+    <div id="os-workspace"></div>
+
+    <div id="ar-cursor"><div class="cursor-dot"></div></div>
+
+    <div id="dock">
+        <div class="dock-icon" onclick="os.launchApp('browser')" title="Navegador"><i data-lucide="globe"></i></div>
+        <div class="dock-icon" onclick="os.launchApp('monitor')" title="Monitor de Sistema"><i data-lucide="cpu"></i></div>
+        <div class="dock-icon" onclick="os.launchApp('workshop')" title="Panel de Taller"><i data-lucide="wrench"></i></div>
+        <div class="dock-icon" onclick="os.clearWorkspace()" title="Limpiar Entorno"><i data-lucide="trash-2" style="color:var(--danger)"></i></div>
     </div>
-    
-    <div class="window" id="win1" style="top: 12%; left: 280px;">
-        <div class="window-header">
-            <span>Navegador Central</span>
-            <span class="win-close" onclick="minimizarVentana(this.closest('.window'))">─</span>
-        </div>
-        <div class="nav-bar">
-            <button class="nav-btn" onclick="document.getElementById('frame1').contentWindow.history.back()">◀</button>
-            <button class="nav-btn" onclick="document.getElementById('frame1').contentWindow.history.forward()">▶</button>
-            <button class="nav-btn" onclick="document.getElementById('frame1').src = document.getElementById('frame1').src">🔄</button>
-            <input type="text" class="address-bar" id="addr1" value="https://es.wikipedia.org" onkeydown="if(event.key==='Enter') cargarUrl(this.value, 'frame1')">
-        </div>
-        <div class="window-content">
-            <iframe class="browser-frame" id="frame1" src="https://es.wikipedia.org/wiki/Portal:Portada"></iframe>
-        </div>
-    </div>
-</div>
 
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 
-<script>
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('output');
-    const ctx = canvas.getContext('2d');
-    const switcher = document.getElementById('task-switcher');
-    const cursor = document.getElementById('custom-cursor');
+    <script>
+        // Inicializar Iconos
+        lucide.createIcons();
 
-    let activeWin = null;
-    let windowCounter = 1;
-    let dragOffsetX = 0;
-    let dragOffsetY = 0;
+        /* ==========================================
+           ARQUITECTURA DEL SISTEMA (OOP)
+           ========================================== */
 
-    function adjustCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-    window.addEventListener('resize', adjustCanvas);
-    adjustCanvas();
-
-    function cargarUrl(val, frameId) {
-        let url = val.trim();
-        if (!/^https?:\/\//i.test(url)) {
-            url = "https://www.google.com/search?q=" + encodeURIComponent(url);
-        }
-        document.getElementById(frameId).src = url;
-    }
-
-    function toggleTaskSwitcher() { switcher.classList.toggle('active'); }
-
-    function crearVentana() {
-        windowCounter++;
-        const win = document.createElement('div');
-        win.className = 'window';
-        win.id = `win${windowCounter}`;
-        win.style.top = `${15 + (windowCounter * 2)}%`; 
-        win.style.left = `${25 + (windowCounter * 2)}%`;
-        win.innerHTML = `
-            <div class="window-header">
-                <span>Módulo Web #${windowCounter}</span>
-                <span class="win-close" onclick="minimizarVentana(this.closest('.window'))">─</span>
-            </div>
-            <div class="nav-bar">
-                <button class="nav-btn" onclick="document.getElementById('frame${windowCounter}').contentWindow.history.back()">◀</button>
-                <button class="nav-btn" onclick="document.getElementById('frame${windowCounter}').contentWindow.history.forward()">▶</button>
-                <input type="text" class="address-bar" value="https://www.google.com" onkeydown="if(event.key==='Enter') cargarUrl(this.value, 'frame${windowCounter}')">
-            </div>
-            <div class="window-content">
-                <iframe class="browser-frame" id="frame${windowCounter}" src="https://es.wikipedia.org/wiki/Portal:Portada"></iframe>
-            </div>`;
-        document.getElementById('container').appendChild(win);
-        asignarClickRestaurar(win);
-    }
-
-    function eliminarVentanaTop() {
-        const wins = document.querySelectorAll('.window:not(.minimized)');
-        if(wins.length > 0) wins[wins.length-1].remove();
-    }
-
-    function minimizarVentana(win) {
-        win.classList.add('minimized');
-        switcher.appendChild(win);
-    }
-
-    function borrarTodasLasVentanas() {
-        document.querySelectorAll('.window').forEach(w => w.remove());
-    }
-
-    function asignarClickRestaurar(win) {
-        win.addEventListener('click', () => {
-            if(win.classList.contains('minimized')) {
-                win.classList.remove('minimized');
-                win.style.position = 'absolute';
-                win.style.left = '320px'; win.style.top = '180px';
-                document.getElementById('container').appendChild(win);
+        // CLASE: Gestor de Ventanas
+        class WindowManager {
+            constructor(workspaceId) {
+                this.workspace = document.getElementById(workspaceId);
+                this.windows = [];
+                this.zIndexCounter = 50;
             }
-        });
-    }
-    document.querySelectorAll('.window').forEach(asignarClickRestaurar);
 
-    // --- CONFIGURACIÓN DE MEDIAPIPE ---
-    const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
-    hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.75, minTrackingConfidence: 0.75 });
+            createWindow(appConfig) {
+                const win = document.createElement('div');
+                win.className = 'nexus-window';
+                win.id = `win-${Date.now()}`;
+                win.style.width = appConfig.width || '400px';
+                win.style.height = appConfig.height || '350px';
+                win.style.left = appConfig.x || `${Math.random() * 40 + 20}%`;
+                win.style.top = appConfig.y || `${Math.random() * 30 + 15}%`;
+                win.style.zIndex = ++this.zIndexCounter;
 
-    hands.onResults((res) => {
-        ctx.save();
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                win.innerHTML = `
+                    <div class="window-header">
+                        <div class="window-title"><i data-lucide="${appConfig.icon}"></i> ${appConfig.title}</div>
+                        <div class="window-controls">
+                            <button class="win-btn btn-min" onclick="this.closest('.nexus-window').style.display='none'"></button>
+                            <button class="win-btn btn-close" onclick="os.windowManager.closeWindow('${win.id}')"></button>
+                        </div>
+                    </div>
+                    <div class="window-content">${appConfig.content}</div>
+                `;
 
-        // Renderizado directo de la cámara (Sin Chroma Key)
-        if (video.readyState === video.HAVE_ENOUGH_DATA) {
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                this.workspace.appendChild(win);
+                this.windows.push(win);
+                lucide.createIcons();
+                document.getElementById('thread-count').innerText = this.windows.length;
+                return win;
+            }
+
+            closeWindow(id) {
+                const win = document.getElementById(id);
+                if (win) {
+                    win.style.transform = 'scale(0.8)';
+                    win.style.opacity = '0';
+                    setTimeout(() => {
+                        win.remove();
+                        this.windows = this.windows.filter(w => w.id !== id);
+                        document.getElementById('thread-count').innerText = this.windows.length;
+                    }, 200);
+                }
+            }
+
+            closeAll() {
+                this.windows.forEach(w => this.closeWindow(w.id));
+            }
+
+            bringToFront(win) {
+                this.windows.forEach(w => w.classList.remove('active'));
+                win.style.zIndex = ++this.zIndexCounter;
+                win.classList.add('active');
+            }
         }
 
-        if (res.multiHandLandmarks && res.multiHandLandmarks.length > 0) {
-            const landmarks = res.multiHandLandmarks[0];
-            
-            // Estructura ósea de la mano alineada con el espejo
-            drawConnectors(ctx, landmarks, HAND_CONNECTIONS, {color: '#00d2ff', lineWidth: 2.5});
-            drawLandmarks(ctx, landmarks, {color: '#ff3b30', lineWidth: 1, radius: 2});
+        // CLASE: Registro de Aplicaciones
+        class AppRegistry {
+            static getApp(appName) {
+                const apps = {
+                    'browser': {
+                        title: 'Navegador Cuántico', icon: 'globe', width: '800px', height: '500px',
+                        content: `<div style="display:flex; gap:10px; margin-bottom:10px;">
+                                    <input type="text" value="https://es.wikipedia.org" style="flex:1; padding:8px; border-radius:5px; border:none; background:#eee;" id="url-bar-${Date.now()}">
+                                    <button style="padding:8px 15px; border-radius:5px; border:none; background:var(--primary); cursor:pointer;">Ir</button>
+                                  </div>
+                                  <iframe src="https://es.wikipedia.org/wiki/Portal:Portada"></iframe>`
+                    },
+                    'monitor': {
+                        title: 'Diagnóstico de Hardware', icon: 'cpu', width: '450px', height: '350px',
+                        content: `<div class="dashboard-grid">
+                                    <div class="data-card"><h4>Procesador (Simulado)</h4><div class="value">Ryzen Arch</div><div style="font-size:12px; color:#0f0;">Uso: 34%</div></div>
+                                    <div class="data-card"><h4>Memoria RAM</h4><div class="value">16 GB</div><div style="font-size:12px; color:#0f0;">Disponible: 7.2 GB</div></div>
+                                    <div class="data-card"><h4>Gráficos</h4><div class="value">Ext-GPU</div><div style="font-size:12px; color:#0f0;">Temp: 45°C</div></div>
+                                    <div class="data-card"><h4>Red</h4><div class="value">1.2 Gbps</div><div style="font-size:12px; color:#0f0;">Ping: 12ms</div></div>
+                                  </div>`
+                    },
+                    'workshop': {
+                        title: 'Gestor de Taller e Inventario', icon: 'wrench', width: '500px', height: '400px',
+                        content: `<div style="margin-bottom:15px; color:#aaa;">Panel de control operativo de ventas y reparaciones.</div>
+                                  <div class="dashboard-grid" style="grid-template-columns: 1fr;">
+                                    <div class="data-card" style="text-align:left; display:flex; justify-content:space-between; align-items:center;">
+                                        <div><h4>Orden de Reparación #084</h4><div class="value" style="font-size:18px; color:white;">Reemplazo Tapa Trasera</div></div>
+                                        <span style="background:var(--danger); padding:5px 10px; border-radius:4px; font-size:12px; font-weight:bold;">PENDIENTE</span>
+                                    </div>
+                                    <div class="data-card" style="text-align:left; display:flex; justify-content:space-between; align-items:center;">
+                                        <div><h4>Inventario Disponible</h4><div class="value" style="font-size:18px; color:white;">Dispositivos Alta Gama</div></div>
+                                        <span style="background:var(--primary); color:black; padding:5px 10px; border-radius:4px; font-size:12px; font-weight:bold;">5 UNIDADES</span>
+                                    </div>
+                                  </div>`
+                    }
+                };
+                return apps[appName];
+            }
+        }
 
-            const thumb = landmarks[4];
-            const index = landmarks[8];
+        // CLASE: Sistema Principal (Kernel)
+        class NexusOS {
+            constructor() {
+                this.windowManager = new WindowManager('os-workspace');
+                this.cursor = document.getElementById('ar-cursor');
+                this.dragState = { active: false, window: null, offsetX: 0, offsetY: 0 };
+            }
 
-            // Sincronización del espejo: Inversión en el cálculo de MediaPipe
-            const px = (1 - index.x) * window.innerWidth;
-            const py = index.y * window.innerHeight;
+            launchApp(appName) {
+                const config = AppRegistry.getApp(appName);
+                if (config) {
+                    const win = this.windowManager.createWindow(config);
+                    this.windowManager.bringToFront(win);
+                }
+            }
 
-            const tx = (1 - thumb.x) * window.innerWidth;
-            const ty = thumb.y * window.innerHeight;
+            clearWorkspace() {
+                this.windowManager.closeAll();
+            }
 
-            const dist = Math.hypot(px - tx, py - ty);
+            // Lógica física de arrastre mediante coordenadas
+            handleInteraction(x, y, isPinching) {
+                this.cursor.style.left = `${x}px`;
+                this.cursor.style.top = `${y}px`;
 
-            // Actualización del Cursor de la Mano
-            cursor.style.display = 'block';
-            cursor.style.left = px + 'px';
-            cursor.style.top = py + 'px';
-
-            // Detección de Pinza / Agarre
-            if (dist < 45) {
-                cursor.innerText = '✊'; // Puño Cerrado
-                
-                if (!activeWin) {
-                    const windows = document.querySelectorAll('.window:not(.minimized)');
-                    for (let i = windows.length - 1; i >= 0; i--) {
-                        const win = windows[i];
-                        const rect = win.getBoundingClientRect();
-                        // Agarre exacto por la barra superior
-                        if (px >= rect.left && px <= rect.right && py >= rect.top && py <= rect.top + 50) {
-                            activeWin = win;
-                            dragOffsetX = px - rect.left;
-                            dragOffsetY = py - rect.top;
-                            document.getElementById('container').appendChild(win); // Capa superior
-                            break;
+                if (isPinching) {
+                    this.cursor.classList.add('grabbing');
+                    
+                    if (!this.dragState.active) {
+                        // Buscar ventana bajo el cursor (en orden inverso de z-index)
+                        const windows = Array.from(this.windowManager.windows).reverse();
+                        for (let win of windows) {
+                            const rect = win.getBoundingClientRect();
+                            // Área de agarre: solo la barra superior (header)
+                            if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.top + 50) {
+                                this.dragState = { active: true, window: win, offsetX: x - rect.left, offsetY: y - rect.top };
+                                this.windowManager.bringToFront(win);
+                                break;
+                            }
                         }
+                    } else if (this.dragState.window) {
+                        // Mover ventana
+                        this.dragState.window.style.left = `${x - this.dragState.offsetX}px`;
+                        this.dragState.window.style.top = `${y - this.dragState.offsetY}px`;
                     }
                 } else {
-                    activeWin.style.left = (px - dragOffsetX) + 'px';
-                    activeWin.style.top = (py - dragOffsetY) + 'px';
+                    this.cursor.classList.remove('grabbing');
+                    this.dragState.active = false;
+                    this.dragState.window = null;
                 }
-            } else {
-                cursor.innerText = '✋'; // Mano Abierta
-                activeWin = null;
             }
-        } else {
-            cursor.style.display = 'none';
         }
-        ctx.restore();
-    });
 
-    const camera = new Camera(video, {
-        onFrame: async () => { await hands.send({image: video}); },
-        width: 1280, height: 720
-    });
-    camera.start();
-</script>
+        const os = new NexusOS();
+
+        /* ==========================================
+           MOTOR DE VISIÓN COMPUTACIONAL (MediaPipe)
+           ========================================== */
+        
+        const videoElement = document.getElementById('camera-feed');
+        const canvasElement = document.getElementById('ar-canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const statusText = document.getElementById('track-status');
+
+        function resizeCanvas() {
+            canvasElement.width = window.innerWidth;
+            canvasElement.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+        
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.7,
+            minTrackingConfidence: 0.7
+        });
+
+        hands.onResults((results) => {
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                statusText.innerText = 'LOCKED';
+                statusText.style.color = '#00f0ff';
+                
+                const landmarks = results.multiHandLandmarks[0];
+                
+                // Dibujar esqueleto futurista en el canvas
+                drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: 'rgba(0, 240, 255, 0.4)', lineWidth: 2});
+                drawLandmarks(canvasCtx, landmarks, {color: '#0055ff', lineWidth: 1, radius: 2});
+
+                // Calcular coordenadas (Punta Índice y Pulgar)
+                const index = landmarks[8];
+                const thumb = landmarks[4];
+
+                // Sincronización exacta con el espejo de pantalla
+                const px = (1 - index.x) * window.innerWidth;
+                const py = index.y * window.innerHeight;
+                const tx = (1 - thumb.x) * window.innerWidth;
+                const ty = thumb.y * window.innerHeight;
+
+                // Calcular distancia para el gesto de "Pinza" (Agarrar)
+                const distance = Math.hypot(px - tx, py - ty);
+                const isPinching = distance < 45;
+
+                // Enviar datos al Kernel del OS
+                os.handleInteraction(px, py, isPinching);
+
+            } else {
+                statusText.innerText = 'SEARCHING...';
+                statusText.style.color = '#ff2a2a';
+                os.cursor.style.display = 'none'; // Ocultar si no hay mano
+            }
+            
+            os.cursor.style.display = results.multiHandLandmarks?.length ? 'flex' : 'none';
+            canvasCtx.restore();
+        });
+
+        // Iniciar Cámara
+        const camera = new Camera(videoElement, {
+            onFrame: async () => { await hands.send({image: videoElement}); },
+            width: 1280, height: 720
+        });
+        camera.start();
+
+        // Lanzar una app por defecto al iniciar
+        setTimeout(() => os.launchApp('monitor'), 2000);
+
+    </script>
 </body>
 </html>
