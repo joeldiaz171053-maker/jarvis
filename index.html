@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Espacio Virtual - Ventanas Interactivas</title>
+    <title>Espacio Virtual - Control Total por Gestos</title>
     <style>
         body, html { 
             margin: 0; padding: 0; width: 100%; height: 100%; 
@@ -12,7 +12,7 @@
 
         #container { position: relative; width: 100vw; height: 100vh; }
         
-        /* --- SOLUCIÓN ESPEJO: Invertimos horizontalmente la cámara y el canvas juntos --- */
+        /* Espejo visual para el usuario */
         #video, #output { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
             object-fit: cover; 
@@ -23,25 +23,25 @@
         /* --- MENÚ DE CONTROL FLOTANTE (Lado Derecho) --- */
         #control-panel {
             position: absolute;
-            right: 24px;
+            right: 40px;
             top: 50%;
             transform: translateY(-50%);
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 24px;
             z-index: 30;
         }
 
         .btn {
-            width: 60px;
-            height: 60px;
+            width: 70px;
+            height: 70px;
             border-radius: 50%;
-            border: 1px solid rgba(255, 255, 255, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.3);
             background: rgba(255, 255, 255, 0.15);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
             color: white;
-            font-size: 24px;
+            font-size: 32px;
             cursor: pointer;
             display: flex;
             justify-content: center;
@@ -51,7 +51,12 @@
             user-select: none;
         }
 
-        .btn:hover { background: rgba(255, 255, 255, 0.3); transform: scale(1.05); }
+        /* Efecto cuando la mano física está "haciendo clic" en el botón */
+        .btn.pressed {
+            transform: scale(0.9);
+            background: rgba(255, 255, 255, 0.6);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.6);
+        }
         .btn-add { border-color: #00FF00; color: #00FF00; }
         .btn-remove { border-color: #FF3B30; color: #FF3B30; }
 
@@ -68,7 +73,7 @@
             box-shadow: 0 20px 50px rgba(0,0,0,0.4);
             z-index: 20;
             overflow: hidden;
-            transition: transform 0.05s linear, border-color 0.2s, box-shadow 0.2s;
+            transition: transform 0.05s linear, border-color 0.2s;
             user-select: none;
         }
 
@@ -76,7 +81,7 @@
             border-color: #00FF00;
             box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
             transform: scale(1.02);
-            z-index: 25; /* Poner al frente al arrastrar */
+            z-index: 25;
         }
 
         .window-header {
@@ -86,14 +91,12 @@
             font-size: 14px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             text-align: center;
-            letter-spacing: 0.5px;
         }
 
         .window-content {
             padding: 18px;
             font-size: 14px;
             line-height: 1.5;
-            color: rgba(255, 255, 255, 0.9);
         }
     </style>
 </head>
@@ -103,14 +106,14 @@
         <canvas id="output"></canvas>
 
         <div id="control-panel">
-            <button class="btn btn-add" id="addBtn" title="Nueva Ventana">+</button>
-            <button class="btn btn-remove" id="removeBtn" title="Eliminar Última Ventana">−</button>
+            <button class="btn btn-add" id="addBtn">+</button>
+            <button class="btn btn-remove" id="removeBtn">−</button>
         </div>
 
-        <div class="window" style="top: 25%; left: 30%;">
+        <div class="window" style="top: 25%; left: 25%;">
             <div class="window-header">Espacio Principal</div>
             <div class="window-content">
-                <p>Usa la pinza (Pulgar + Índice) sobre esta ventana para moverla. ¡Usa los botones de la derecha para añadir más!</p>
+                <p>¡Arreglado! Junta tus dedos aquí para moverme, o haz la pinza sobre los botones de la derecha.</p>
             </div>
         </div>
     </div>
@@ -124,11 +127,13 @@
         const canvasElement = document.getElementById('output');
         const canvasCtx = canvasElement.getContext('2d');
 
-        // Estado del arrastre
         let activeHoldingWindow = null;
         let offsetX = 0;
         let offsetY = 0;
         let windowCounter = 1;
+        
+        // Bandera para evitar clics infinitos mientras se sostiene la pinza en un botón
+        let buttonCooldown = false; 
 
         function resizeCanvas() {
             canvasElement.width = window.innerWidth;
@@ -137,36 +142,35 @@
         window.addEventListener('load', resizeCanvas);
         window.addEventListener('resize', resizeCanvas);
 
-        // --- SISTEMA DINÁMICO DE VENTANAS (BOTONES) ---
-        document.getElementById('addBtn').addEventListener('click', () => {
+        // Funciones de control de ventanas
+        function crearVentana() {
             windowCounter++;
             const newWin = document.createElement('div');
             newWin.className = 'window';
-            // Posición aleatoria controlada para que aparezcan en el centro visible
             const randomTop = Math.floor(Math.random() * 40) + 20;
-            const randomLeft = Math.floor(Math.random() * 30) + 25;
+            const randomLeft = Math.floor(Math.random() * 30) + 20;
             
             newWin.style.top = `${randomTop}%`;
             newWin.style.left = `${randomLeft}%`;
             newWin.innerHTML = `
                 <div class="window-header">Ventana #${windowCounter}</div>
-                <div class="window-content">
-                    <p>Esta es una nueva interfaz flotante independiente. Puedes moverla de la misma forma.</p>
-                </div>
+                <div class="window-content"><p>Nueva interfaz virtual añadida con éxito usando tus dedos.</p></div>
             `;
             document.getElementById('container').appendChild(newWin);
-        });
+        }
 
-        document.getElementById('removeBtn').addEventListener('click', () => {
+        function eliminarVentana() {
             const windows = document.querySelectorAll('.window');
-            // Eliminar solo si hay más de una ventana para no dejar el espacio vacío
             if (windows.length > 1) {
                 windows[windows.length - 1].remove();
             }
-        });
+        }
 
+        // Eventos para mouse por si acaso
+        document.getElementById('addBtn').addEventListener('click', crearVentana);
+        document.getElementById('removeBtn').addEventListener('click', eliminarVentana);
 
-        // --- CONFIGURACIÓN DE MEDIAPIPE ---
+        // Configuración de MediaPipe
         const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
         hands.setOptions({ 
             maxNumHands: 2, 
@@ -185,37 +189,62 @@
                 for (const landmarks of results.multiHandLandmarks) {
                     handDetectedThisFrame = true;
 
-                    // Dibujar esqueleto (MediaPipe se dibuja directo ya que el CSS espeja todo el lienzo)
                     drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#ffffff', lineWidth: 2});
                     drawLandmarks(canvasCtx, landmarks, {color: '#00FF00', lineWidth: 1, radius: 3});
 
                     const thumb = landmarks[4];
                     const indexFinger = landmarks[8];
 
-                    // Al usar transform: scaleX(-1) en CSS, las coordenadas X nativas de MediaPipe (de 0 a 1) 
-                    // ya concuerdan perfectamente con la visualización reflejada en pantalla.
-                    const thumbX = thumb.x * window.innerWidth;
+                    // --- CORRECCIÓN MATEMÁTICA DEL ESPEJO ---
+                    // Invertimos el cálculo en JS para emparejarlo con el transform: scaleX(-1) de CSS
+                    const thumbX = window.innerWidth - (thumb.x * window.innerWidth);
                     const thumbY = thumb.y * window.innerHeight;
-                    const indexX = indexFinger.x * window.innerWidth;
+                    const indexX = window.innerWidth - (indexFinger.x * window.innerWidth);
                     const indexY = indexFinger.y * window.innerHeight;
 
-                    // Distancia e indicador de pinza
                     const distancia = Math.sqrt(Math.pow(indexX - thumbX, 2) + Math.pow(indexY - thumbY, 2));
                     const pointerX = (thumbX + indexX) / 2;
                     const pointerY = (thumbY + indexY) / 2;
 
+                    // Dibujar indicador de pinza
                     canvasCtx.beginPath();
                     canvasCtx.arc(pointerX, pointerY, 8, 0, 2 * Math.PI);
                     canvasCtx.fillStyle = distancia < 45 ? '#00FF00' : '#FF0000';
                     canvasCtx.fill();
 
-                    // --- ARRASTRE MULTI-VENTANA ---
+                    // --- DETECCIÓN DE INTERACCIÓN ---
                     if (distancia < 45) {
+                        
+                        // 1. COMPROBAR BOTONES FLOTANTES
+                        const addBtn = document.getElementById('addBtn');
+                        const removeBtn = document.getElementById('removeBtn');
+                        const rAdd = addBtn.getBoundingClientRect();
+                        const rRem = removeBtn.getBoundingClientRect();
+
+                        // Pinza sobre botón Añadir
+                        if (pointerX >= rAdd.left && pointerX <= rAdd.right && pointerY >= rAdd.top && pointerY <= rAdd.bottom) {
+                            addBtn.classList.add('pressed');
+                            if (!buttonCooldown) {
+                                crearVentana();
+                                buttonCooldown = true;
+                            }
+                            continue; // Saltar lógica de ventanas si interactúa con botones
+                        }
+                        
+                        // Pinza sobre botón Eliminar
+                        if (pointerX >= rRem.left && pointerX <= rRem.right && pointerY >= rRem.top && pointerY <= rRem.bottom) {
+                            removeBtn.classList.add('pressed');
+                            if (!buttonCooldown) {
+                                eliminarVentana();
+                                buttonCooldown = true;
+                            }
+                            continue;
+                        }
+
+                        // 2. LOGICA DE ARRASTRE DE VENTANAS (Si no está sobre botones)
                         if (!activeHoldingWindow) {
-                            // Buscar en todas las ventanas cuál está bajo la mano
                             const windows = document.querySelectorAll('.window');
                             
-                            // Iteramos al revés para agarrar siempre la ventana que esté más al frente visualmente
                             for (let i = windows.length - 1; i >= 0; i--) {
                                 const win = windows[i];
                                 const rect = win.getBoundingClientRect();
@@ -227,28 +256,36 @@
                                     win.classList.add('holding');
                                     offsetX = pointerX - rect.left;
                                     offsetY = pointerY - rect.top;
-                                    break; // Detener búsqueda tras encontrar la primera ventana coincidente
+                                    break;
                                 }
                             }
                         } else {
-                            // Mover la ventana activa
+                            // Mover ventana activa
                             activeHoldingWindow.style.left = `${pointerX - offsetX}px`;
                             activeHoldingWindow.style.top = `${pointerY - offsetY}px`;
                         }
+
                     } else {
-                        // Soltar la ventana si se abren los dedos
+                        // Soltar todo al abrir los dedos
                         if (activeHoldingWindow) {
                             activeHoldingWindow.classList.remove('holding');
                             activeHoldingWindow = null;
                         }
+                        document.getElementById('addBtn').classList.remove('pressed');
+                        document.getElementById('removeBtn').classList.remove('pressed');
+                        buttonCooldown = false; // Resetear enfriamiento de botones
                     }
                 }
             }
 
-            // Soltar si la mano sale por completo de la cámara
-            if (!handDetectedThisFrame && activeHoldingWindow) {
-                activeHoldingWindow.classList.remove('holding');
-                activeHoldingWindow = null;
+            if (!handDetectedThisFrame) {
+                if (activeHoldingWindow) {
+                    activeHoldingWindow.classList.remove('holding');
+                    activeHoldingWindow = null;
+                }
+                document.getElementById('addBtn').classList.remove('pressed');
+                document.getElementById('removeBtn').classList.remove('pressed');
+                buttonCooldown = false;
             }
 
             canvasCtx.restore();
