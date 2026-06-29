@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Espacio Virtual - Interfaz Estilo Iron Man</title>
+    <title>Espacio Virtual - Control de Gestos Avanzado</title>
     <style>
         body, html { 
             margin: 0; padding: 0; width: 100%; height: 100%; 
@@ -55,19 +55,16 @@
             background: rgba(0, 150, 255, 0.08); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
             border: 1px solid rgba(0, 210, 255, 0.25); border-radius: 16px; color: white;
             box-shadow: 0 20px 50px rgba(0,0,0,0.5); z-index: 20; overflow: hidden;
-            /* Transiciones fluidas para efectos de escalado e iluminación */
             transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), width 0.4s ease, height 0.4s ease, border-color 0.3s, box-shadow 0.3s; 
             user-select: none;
         }
 
-        /* --- INTERACCIÓN TIPO IRON MAN (Cuando la mano la sujeta o interactúa) --- */
         .window.holding {
             border-color: #00FF00; 
-            /* Se agranda un 15% en tu mano con un brillo verde holográfico */
             transform: scale(1.15) !important; 
             box-shadow: 0 0 40px rgba(0, 255, 0, 0.4); 
             z-index: 25;
-            transition: transform 0.08s linear; /* Más responsivo durante el movimiento */
+            transition: transform 0.08s linear;
         }
 
         /* --- MODO ENFOQUE (PANTALLA COMPLETA) --- */
@@ -109,9 +106,11 @@
         </div>
 
         <div class="window" style="top: 25%; left: 25%;">
-            <div class="window-header">Core HUD v1.0</div>
+            <div class="window-header">Core HUD v2.0</div>
             <div class="window-content">
-                <p><b>Efecto Stark:</b> Agarra la ventana usando la pinza y verás cómo se extrae hacia el frente aumentando su escala un 15% con brillo interactivo.</p>
+                <p><b>Nuevos comandos:</b><br>
+                1. Haz la pinza y abre el pulgar e índice rápidamente para mandar a segundo plano.<br>
+                2. Sostén 3 dedos arriba (Pulgar, Índice y Anular) sobre mí para expandir a pantalla completa.</p>
             </div>
         </div>
     </div>
@@ -144,6 +143,16 @@
         window.addEventListener('load', resizeCanvas);
         window.addEventListener('resize', resizeCanvas);
 
+        function enviarASegundoPlano(win) {
+            if (maximizedWindow) return;
+            sidebar.classList.add('active');
+            originalPositions.set(win, { top: win.style.top, left: win.style.left });
+            win.classList.remove('holding');
+            win.classList.add('minimized');
+            sidebar.appendChild(win);
+            if(activeHoldingWindow === win) activeHoldingWindow = null;
+        }
+
         function crearVentana() {
             if (maximizedWindow) return; 
             windowCounter++;
@@ -172,7 +181,6 @@
         document.getElementById('addBtn').addEventListener('click', crearVentana);
         document.getElementById('removeBtn').addEventListener('click', eliminarVentana);
 
-        // CONFIGURACIÓN MEDIAPIPE
         const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
         hands.setOptions({ 
             maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 
@@ -191,9 +199,11 @@
                     drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#ffffff', lineWidth: 1.5});
                     drawLandmarks(canvasCtx, landmarks, {color: '#00d2ff', lineWidth: 1, radius: 2.5});
 
+                    // Puntos estructurales clave
                     const thumb = landmarks[4];
                     const index = landmarks[8];
-                    const pinky = landmarks[20]; 
+                    const ring = landmarks[16];   // Dedo Anular
+                    const pinky = landmarks[20];
 
                     // Coordenadas en espejo físico perfecto
                     const pointerX = window.innerWidth - (((thumb.x + index.x) / 2) * window.innerWidth);
@@ -203,27 +213,34 @@
                     const indexY = index.y * window.innerHeight;
                     const thumbX = window.innerWidth - (thumb.x * window.innerWidth);
                     const thumbY = thumb.y * window.innerHeight;
+                    const ringX = window.innerWidth - (ring.x * window.innerWidth);
+                    const ringY = ring.y * window.innerHeight;
                     const pinkyX = window.innerWidth - (pinky.x * window.innerWidth);
                     const pinkyY = pinky.y * window.innerHeight;
 
+                    // Distancias críticas para análisis de gestos
                     const distanciaPinza = Math.sqrt(Math.pow(indexX - thumbX, 2) + Math.pow(indexY - thumbY, 2));
+                    const distanciaAnularPulgar = Math.sqrt(Math.pow(ringX - thumbX, 2) + Math.pow(ringY - thumbY, 2));
                     const distanciaManoAbierta = Math.sqrt(Math.pow(pinkyX - thumbX, 2) + Math.pow(pinkyY - thumbY, 2));
 
-                    // HUD de puntero interactivo
+                    // Variable de estado para evaluar 3 Dedos Arriba (Pulgar, Índice, Anular extendidos)
+                    const tresDedosArriba = (distanciaPinza > 90 && distanciaAnularPulgar > 90 && distanciaManoAbierta < 230);
+
+                    // HUD gráfico del puntero virtual
                     canvasCtx.beginPath();
                     canvasCtx.arc(pointerX, pointerY, 6, 0, 2 * Math.PI);
-                    if (distanciaPinza < 45) {
-                        canvasCtx.fillStyle = '#00FF00'; // Pinza de arrastre/selección
-                    } else if (distanciaManoAbierta > 220) {
-                        canvasCtx.fillStyle = '#00D2FF'; // Mano abierta (Pantalla completa)
+                    if (tresDedosArriba) {
+                        canvasCtx.fillStyle = '#00D2FF'; // Azul: Modo Pantalla Completa listo
+                    } else if (distanciaPinza < 45) {
+                        canvasCtx.fillStyle = '#00FF00'; // Verde: Sujetando / Moviendo
                     } else {
-                        canvasCtx.fillStyle = '#rgba(0, 210, 255, 0.5)';
+                        canvasCtx.fillStyle = 'rgba(0, 210, 255, 0.5)';
                     }
                     canvasCtx.fill();
 
 
-                    // --- GESTO 1: MANO ABIERTA (MAXIMIZAR / RESTAURAR) ---
-                    if (distanciaManoAbierta > 220 && !activeHoldingWindow) {
+                    // --- GESTO 1: TRES DEDOS LEVANTADOS (PANTALLA COMPLETA) ---
+                    if (tresDedosArriba && !activeHoldingWindow) {
                         if (!gestureCooldown) {
                             const windows = document.querySelectorAll('.window');
                             
@@ -272,11 +289,11 @@
                                 }
                             }
                         }
-                        continue; 
+                        continue;
                     }
 
 
-                    // --- GESTO 2: PINZA (ARRASTRE CON CRECIMIENTO TIPO IRON MAN) ---
+                    // --- GESTO 2: PINZA Y APERTURA DE DEDOS (MOVIMIENTO Y SEGUNDO PLANO) ---
                     if (distanciaPinza < 45) {
                         if (!maximizedWindow) {
                             const addBtn = document.getElementById('addBtn');
@@ -289,7 +306,7 @@
                                 if (!buttonCooldown) { crearVentana(); buttonCooldown = true; }
                                 continue;
                             }
-                            if (pointerX >= rRem.left && pointerX <= rRem.right && pointerY >= rRem.remRight && pointerY <= rRem.bottom) {
+                            if (pointerX >= rRem.left && pointerX <= rRem.right && pointerY >= rRem.top && pointerY <= rRem.bottom) {
                                 removeBtn.classList.add('pressed');
                                 if (!buttonCooldown) { eliminarVentana(); buttonCooldown = true; }
                                 continue;
@@ -304,20 +321,24 @@
 
                                 if (pointerX >= rect.left && pointerX <= rect.right && pointerY >= rect.top && pointerY <= rect.bottom) {
                                     activeHoldingWindow = win;
-                                    win.classList.add('holding'); // El CSS se encarga del crecimiento instantáneo a 1.15
+                                    win.classList.add('holding'); 
                                     offsetX = pointerX - rect.left;
                                     offsetY = pointerY - rect.top;
                                     break;
                                 }
                             }
                         } else {
-                            // Mover la ventana que se encuentra en crecimiento amplificado
                             activeHoldingWindow.style.left = `${pointerX - offsetX}px`;
                             activeHoldingWindow.style.top = `${pointerY - offsetY}px`;
                         }
                     } else {
+                        // DETECCIÓN SEGUNDO PLANO: Si estaba sosteniendo una ventana y abre los dedos bruscamente (>120px)
+                        if (activeHoldingWindow && distanciaPinza > 120) {
+                            enviarASegundoPlano(activeHoldingWindow);
+                        }
+
                         if (activeHoldingWindow) {
-                            activeHoldingWindow.classList.remove('holding'); // Regresa a su escala original suavemente
+                            activeHoldingWindow.classList.remove('holding'); 
                             activeHoldingWindow = null;
                         }
                         document.getElementById('addBtn').classList.remove('pressed');
