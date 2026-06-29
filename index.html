@@ -909,7 +909,68 @@
         document.getElementById('workspace').addEventListener('mousedown', (e) => {
             if(e.target.id === 'workspace') sys.ui.els.menu.classList.remove('open');
         });
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8"><title>Nexus OS Control</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <style>
+        body{margin:0;background:#02050a;color:#0ff;font-family:monospace;overflow:hidden}
+        #feed{position:absolute;width:100%;height:100%;transform:scaleX(-1);opacity:0.2}
+        #cursor{position:absolute;width:20px;height:20px;border:2px solid #fff;border-radius:50%;z-index:999;pointer-events:none}
+        .window{position:absolute;width:300px;height:200px;background:rgba(0,50,100,0.8);border:1px solid #0ff;cursor:move;padding:10px}
+    </style>
+</head>
+<body>
+    <video id="feed" autoplay playsinline></video>
+    <div id="cursor"></div>
+    <div id="workspace">
+        <div class="window" style="top:100px;left:100px">App Navegador</div>
+        <div class="window" style="top:100px;left:450px">App Sistema</div>
+    </div>
 
+    <script>
+        const cursor = document.getElementById('cursor');
+        let activeWin = null;
+
+        const hands = new Hands({locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
+        hands.setOptions({maxNumHands: 1, minDetectionConfidence: 0.7});
+        
+        hands.onResults(res => {
+            if(res.multiHandLandmarks?.length){
+                const i = res.multiHandLandmarks[0][8];
+                const x = (1-i.x) * window.innerWidth, y = i.y * window.innerHeight;
+                const z = Math.abs(i.z * 100); // Proximidad: > 15 es "clic" o "presión"
+
+                cursor.style.left = x + 'px'; cursor.style.top = y + 'px';
+
+                // Interacción con ventanas
+                const el = document.elementFromPoint(x, y);
+                if(el?.classList.contains('window')) {
+                    if(z > 15) { // Gesto de empuje (Proximidad)
+                        activeWin = el;
+                        activeWin.style.borderColor = '#fff';
+                    }
+                }
+
+                if(activeWin && z > 15) {
+                    activeWin.style.left = (x - 150) + 'px';
+                    activeWin.style.top = (y - 50) + 'px';
+                } else if(z < 10) activeWin = null; // Soltar al alejar mano
+            }
+        });
+
+        new Camera(document.getElementById('feed'), {
+            onFrame: async () => await hands.send({image: document.getElementById('feed')})
+        }).start();
+
+        const rec = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        rec.onresult = (e) => {
+            const cmd = e.results[0][0].transcript.toLowerCase();
+            if(cmd.includes('buscar')) window.open(`https://google.com/search?q=${cmd.split('buscar')[1]}`);
+        };
+        rec.start();
     </script>
 </body>
 </html>
