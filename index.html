@@ -2,109 +2,256 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Holo-OS Pro Interface</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Holo-OS Pro Chroma Interface</title>
     <style>
-        body { margin: 0; background: #050505; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; }
         #container { width: 100vw; height: 100vh; position: relative; }
-        #video { position: absolute; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); opacity: 0.3; }
         
-        /* Sidebar Interactivo */
+        /* Video oculto para procesamiento y Canvas de Fondo */
+        #video { position: absolute; width: 100%; height: 100%; object-fit: cover; display: none; }
+        #output { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 10; }
+        
+        /* Fondo virtual de Windows */
+        #virtual-bg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: url('https://images.unsplash.com/photo-1629654297299-c8506221ca97?q=80&w=1920') no-repeat center center;
+            background-size: cover; z-index: 1;
+        }
+        
+        /* Controles Derecho */
+        #control-panel { position: absolute; right: 40px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 20px; z-index: 60; }
+        .btn { width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,0.2); border: 1px solid white; color: white; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        
+        /* Sidebar Izquierdo */
         #sidebar { 
             position: absolute; left: 0; top: 0; width: 220px; height: 100%; 
-            background: rgba(20, 20, 20, 0.85); border-right: 2px solid #00d2ff;
+            background: rgba(15, 25, 40, 0.75); border-right: 2px solid #00d2ff; backdrop-filter: blur(10px);
             display: flex; flex-direction: column; gap: 15px; padding: 20px; z-index: 50;
-            overflow-y: auto; transition: transform 0.4s ease;
+            overflow-y: auto; box-sizing: border-box;
         }
+        #sidebar h3 { margin-top: 0; border-bottom: 1px solid rgba(0,210,255,0.4); padding-bottom: 5px; font-size: 16px; letter-spacing: 1px; }
         
-        /* Ventanas */
+        /* Ventanas Redimensionables y Movibles */
         .window { 
-            position: absolute; width: 350px; background: rgba(0, 30, 60, 0.95); 
-            border: 1px solid #00d2ff; border-radius: 15px; padding: 15px; z-index: 20;
-            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5); animation: emerge 0.4s ease-out;
+            position: absolute; width: 380px; height: 380px; background: rgba(10, 25, 50, 0.85); 
+            border: 2px solid #00d2ff; border-radius: 12px; padding: 12px; z-index: 40;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+            resize: both; overflow: auto; display: flex; flex-direction: column;
+            animation: emerge 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1);
         }
-        @keyframes emerge { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+        @keyframes emerge { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
         
-        .minimized { position: relative !important; width: 100% !important; height: 60px !important; background: rgba(0,50,100,0.5); font-size: 12px; }
+        .window.minimized { position: relative !important; width: 100% !important; height: 70px !important; top: 0 !important; left: 0 !important; background: rgba(0,70,150,0.4); resize: none; overflow: hidden; }
+        .window-header { cursor: move; padding-bottom: 8px; font-weight: bold; border-bottom: 1px solid rgba(0, 210, 255, 0.3); user-select: none; display: flex; justify-content: space-between; }
         
-        /* Buscador y Sugerencias */
-        .suggestions { background: white; color: black; padding: 8px; display: none; border-radius: 5px; margin-top: 5px; }
-        .mic-active { background: #ff3b30 !important; box-shadow: 0 0 15px #ff3b30; }
+        .window-content { flex-grow: 1; display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+        
+        /* Buscador e Interfaz */
+        .search-container { position: relative; width: 100%; }
+        input[type="text"] { width: 100%; padding: 8px; box-sizing: border-box; background: rgba(255,255,255,0.9); border: none; border-radius: 6px; font-weight: 600; outline: none; }
+        .suggestions { background: #fff; color: #333; position: absolute; width: 100%; z-index: 100; border-radius: 6px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); display: none; margin-top: 2px; padding: 5px 0; }
+        .suggestions div { padding: 8px 12px; cursor: pointer; font-size: 13px; }
+        .suggestions div:hover { background: #00d2ff; color: white; }
+        
+        .mic-btn { width: 100%; padding: 10px; background: #00d2ff; border: none; color: black; font-weight: bold; cursor: pointer; border-radius: 6px; transition: 0.3s; }
+        .mic-btn.mic-active { background: #ff3b30; color: white; box-shadow: 0 0 15px #ff3b30; }
+        
+        .browser-frame { width: 100%; flex-grow: 1; border: none; border-radius: 6px; background: white; }
     </style>
 </head>
 <body>
 
 <div id="container">
+    <div id="virtual-bg"></div>
     <video id="video" autoplay playsinline></video>
+    <canvas id="output"></canvas>
+    
     <div id="sidebar"><h3>Segundo Plano</h3></div>
     
-    <div class="window" id="win1" style="top: 20%; left: 300px;">
-        <div class="window-header">Navegador IA</div>
-        <input type="text" id="searchBar" placeholder="¿Qué buscamos hoy?" style="width: 100%;">
-        <div id="sugs" class="suggestions">Sugerencias: Tiempo, Noticias, IA, Programación</div>
-        <button id="micBtn" style="width: 100%; margin-top:10px;">🎤 Activar Voz</button>
-        <iframe src="https://es.wikipedia.org/wiki/Portal:Portada" style="width:100%; height:200px; border:none; margin-top:10px;"></iframe>
+    <div id="control-panel">
+        <button class="btn" onclick="crearVentana()">+</button>
+        <button class="btn" onclick="eliminarVentana()">-</button>
+    </div>
+    
+    <div class="window" id="win1" style="top: 15%; left: 260px;">
+        <div class="window-header"><span>Navegador IA</span></div>
+        <div class="window-content">
+            <div class="search-container">
+                <input type="text" id="searchBar" placeholder="¿Qué deseas buscar por voz?">
+                <div id="sugs" class="suggestions">
+                    <div>Noticias tecnológicas del día</div>
+                    <div>Mejores specs de procesadores Ryzen</div>
+                    <div>Estrategias avanzadas de Blackjack</div>
+                </div>
+            </div>
+            <button id="micBtn" class="mic-btn">🎤 Activar Búsqueda por Voz</button>
+            <iframe class="browser-frame" src="https://es.wikipedia.org/wiki/Portal:Portada"></iframe>
+        </div>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 
 <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('output');
+    const ctx = canvas.getContext('2d');
     const sidebar = document.getElementById('sidebar');
     const searchBar = document.getElementById('searchBar');
     const sugs = document.getElementById('sugs');
     const micBtn = document.getElementById('micBtn');
 
-    // Lógica de Voz
+    let activeWin = null;
+    let windowCounter = 1;
+
+    // Redimensionar Canvas automáticamente
+    function adjustCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+    window.addEventListener('resize', adjustCanvas);
+    adjustCanvas();
+
+    // Sistema de Voz
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
     recognition.lang = 'es-ES';
     recognition.onstart = () => micBtn.classList.add('mic-active');
     recognition.onend = () => micBtn.classList.remove('mic-active');
     recognition.onresult = (e) => {
         const query = e.results[0][0].transcript;
-        window.open(`https://www.google.com/search?q=${query}`, '_blank');
+        searchBar.value = query;
+        window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
     };
     micBtn.onclick = () => recognition.start();
 
-    // Sugerencias
+    // Comportamiento del Buscador Dinámico
     searchBar.onfocus = () => sugs.style.display = 'block';
-    searchBar.onblur = () => setTimeout(() => sugs.style.display = 'none', 300);
-
-    // Sistema de manos (Arrastrar y Minimizar)
-    const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
-    hands.setOptions({ maxNumHands: 1, minDetectionConfidence: 0.7 });
-
-    hands.onResults((res) => {
-        if (res.multiHandLandmarks?.length > 0) {
-            const index = res.multiHandLandmarks[0][8];
-            const thumb = res.multiHandLandmarks[0][4];
-            const dist = Math.hypot(index.x - thumb.x, index.y - thumb.y);
-            const px = (1 - index.x) * window.innerWidth;
-            const py = index.y * window.innerHeight;
-
-            // Arrastrar ventanas
-            if (dist < 0.05) {
-                const windows = document.querySelectorAll('.window');
-                windows.forEach(win => {
-                    const rect = win.getBoundingClientRect();
-                    if (px > rect.left && px < rect.right && py > rect.top && py < rect.top + 50) {
-                        win.style.left = px + 'px'; win.style.top = py + 'px';
-                        // Auto-activar voz al sujetar ventana
-                        if (!micBtn.classList.contains('mic-active')) recognition.start();
-                    }
-                });
-            }
-            // Minimizar a sidebar
-            else if (index.x > 0.8) {
-                const win = document.getElementById('win1');
-                win.classList.add('minimized');
-                sidebar.appendChild(win);
-            }
-        }
+    searchBar.onblur = () => setTimeout(() => sugs.style.display = 'none', 250);
+    sugs.querySelectorAll('div').forEach(item => {
+        item.onclick = () => { searchBar.value = item.innerText; window.open(`https://www.google.com/search?q=${encodeURIComponent(item.innerText)}`, '_blank'); };
     });
 
-    new Camera(document.getElementById('video'), { onFrame: async () => await hands.send({image: document.getElementById('video')}) }).start();
+    function crearVentana() {
+        windowCounter++;
+        const win = document.createElement('div');
+        win.className = 'window';
+        win.id = `win${windowCounter}`;
+        win.style.top = '150px'; win.style.left = '320px';
+        win.innerHTML = `<div class="window-header"><span>Módulo #${windowCounter}</span></div><div class="window-content"><p>Espacio libre para operaciones del sistema.</p></div>`;
+        document.getElementById('container').appendChild(win);
+        registrarInteraccionSidebar(win);
+    }
+
+    function eliminarVentana() {
+        const wins = document.querySelectorAll('.window:not(.minimized)');
+        if(wins.length > 1) wins[wins.length-1].remove();
+    }
+
+    function registrarInteraccionSidebar(win) {
+        win.addEventListener('click', () => {
+            if(win.classList.contains('minimized')) {
+                win.classList.remove('minimized');
+                win.style.position = 'absolute';
+                win.style.left = '300px'; win.style.top = '200px';
+                document.getElementById('container').appendChild(win);
+            }
+        });
+    }
+    registrarInteraccionSidebar(document.getElementById('win1'));
+
+    // Configuración de MediaPipe Hands
+    const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
+    hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+
+    hands.onResults((res) => {
+        ctx.save();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // --- ALGORITMO CHROMA KEY EN TIEMPO REAL ---
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            let frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            let l = frame.data.length / 4;
+
+            for (let i = 0; i < l; i++) {
+                let r = frame.data[i * 4 + 0];
+                let g = frame.data[i * 4 + 1];
+                let b = frame.data[i * 4 + 2];
+                
+                // Filtro optimizado para eliminar fondos (claros, oscuros o verdes del entorno)
+                if (g > 110 && r < 100 && b < 100) { 
+                    frame.data[i * 4 + 3] = 0; // Transparente total
+                } else if (r > 200 && g > 200 && b > 200) {
+                    frame.data[i * 4 + 3] = 0; // Remueve exceso de brillos del fondo blanco
+                }
+            }
+            ctx.putImageData(frame, 0, 0);
+        }
+
+        // --- TRACKING DE MANOS Y ESQUELETO ---
+        if (res.multiHandLandmarks) {
+            for (const landmarks of res.multiHandLandmarks) {
+                // Dibujar conexiones y esqueleto holográfico en pantalla
+                drawConnectors(ctx, landmarks, HAND_CONNECTIONS, {color: '#00d2ff', lineWidth: 2});
+                drawLandmarks(ctx, landmarks, {color: '#ff3b30', lineWidth: 1, radius: 3});
+
+                const thumb = landmarks[4];
+                const index = landmarks[8];
+
+                // Mapeo físico perfecto invertido para efecto espejo
+                const px = window.innerWidth - (((thumb.x + index.x) / 2) * window.innerWidth);
+                const py = ((thumb.y + index.y) / 2) * window.innerHeight;
+
+                const ix = window.innerWidth - (index.x * window.innerWidth);
+                const iy = index.y * window.innerHeight;
+                const tx = window.innerWidth - (thumb.x * window.innerWidth);
+                const ty = thumb.y * window.innerHeight;
+
+                const dist = Math.hypot(ix - tx, iy - ty);
+
+                // Cursor indicador de acción
+                ctx.beginPath();
+                ctx.arc(px, py, 8, 0, Math.PI * 2);
+                ctx.fillStyle = dist < 45 ? '#00FF00' : '#00d2ff';
+                ctx.fill();
+
+                // Gesto de pinza para arrastrar ventanas (Agarrar por el Header)
+                if (dist < 45) {
+                    const windows = document.querySelectorAll('.window:not(.minimized)');
+                    windows.forEach(win => {
+                        const rect = win.getBoundingClientRect();
+                        if (px > rect.left && px < rect.right && py > rect.top && py < rect.top + 45) {
+                            if (!activeWin) {
+                                activeWin = win;
+                                // Disparar micrófono automático al interactuar con el navegador principal
+                                if(win.id === 'win1' && !micBtn.classList.contains('mic-active')) {
+                                    recognition.start();
+                                }
+                            }
+                            activeWin.style.left = (px - 100) + 'px';
+                            activeWin.style.top = (py - 20) + 'px';
+                        }
+                    });
+                } else {
+                    // Si se abre la mano bruscamente hacia la derecha del entorno, enviar a segundo plano
+                    if (activeWin && index.x < 0.2) {
+                        activeWin.classList.add('minimized');
+                        sidebar.appendChild(activeWin);
+                        activeWin = null;
+                    } else {
+                        activeWin = null;
+                    }
+                }
+            }
+        }
+        ctx.restore();
+    });
+
+    const camera = new Camera(video, {
+        onFrame: async () => { await hands.send({image: video}); },
+        width: 1280, height: 720
+    });
+    camera.start();
 </script>
 </body>
 </html>
